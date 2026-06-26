@@ -1,0 +1,62 @@
+[
+  {
+    "generation": 1,
+    "best_fit": 280205.0,
+    "gen_best": 280205.0,
+    "mean_fit": 139296.75
+  },
+  {
+    "generation": 2,
+    "best_fit": 280205.0,
+    "gen_best": 240189.0,
+    "mean_fit": 173483.16666666666
+  },
+  {
+    "generation": 3,
+    "best_fit": 290212.0,
+    "gen_best": 290212.0,
+    "mean_fit": 197247.875
+  },
+  {
+    "generation": 4,
+    "best_fit": 290212.0,
+    "gen_best": 280209.0,
+    "mean_fit": 190992.20833333334
+  },
+  {
+    "generation": 5,
+    "best_fit": 290212.0,
+    "gen_best": 280209.0,
+    "mean_fit": 193079.0
+  },
+  {
+    "generation": 6,
+    "best_fit": 290212.0,
+    "gen_best": 280209.0,
+    "mean_fit": 216424.75
+  },
+  {
+    "generation": 7,
+    "best_fit": 370259.0,
+    "gen_best": 370259.0,
+    "mean_fit": 229763.25
+  },
+  {
+    "generation": 8,
+    "best_fit": 370259.0,
+    "gen_best": 280209.0,
+    "mean_fit": 242689.25
+  },
+  {
+    "generation": 9,
+    "best_fit": 370259.0,
+    "gen_best": 280209.0,
+    "mean_fit": 244357.54166666666
+  },
+  {
+    "generation": 10,
+    "best_fit": 370259.0,
+    "gen_best": 280209.0,
+    "mean_fit": 249776.625
+  }
+]

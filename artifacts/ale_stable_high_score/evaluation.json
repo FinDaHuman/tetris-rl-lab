@@ -1,0 +1,28 @@
+{
+  "name": "ale_stable_high_score",
+  "source_checkpoint": "runs/ale_line_fitness_2/best_weights.npy",
+  "weights": "artifacts/ale_stable_high_score/best_weights.npy",
+  "planner": "legacy_model",
+  "command": "python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0",
+  "seed_range": [0, 9],
+  "episodes": 10,
+  "max_pieces": 400,
+  "results": [
+    {"seed": 0, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 1, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 2, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 3, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 4, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 5, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 6, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 7, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 8, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259},
+    {"seed": 9, "score": 3700, "lines": 37, "native_reward": 37.0, "pieces": 259}
+  ],
+  "mean_score": 3700.0,
+  "mean_lines": 37.0,
+  "min_lines": 37,
+  "max_lines": 37,
+  "line_std": 0.0,
+  "note": "Saved separately from artifacts/ale_37_line so the original archived best remains untouched."
+}

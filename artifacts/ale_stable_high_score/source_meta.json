@@ -1,0 +1,29 @@
+{
+  "feature_names": [
+    "lines",
+    "aggregate_height",
+    "holes",
+    "bumpiness",
+    "wells",
+    "row_transitions",
+    "col_transitions",
+    "max_height",
+    "side_imbalance",
+    "landing_height",
+    "eroded_cells"
+  ],
+  "best_fit": 370259.0,
+  "weights": [
+    18.607724379165383,
+    -27.207504612329146,
+    -13.92679701605283,
+    -5.311824246256061,
+    -5.298760938574828,
+    1.9027738509628755,
+    -4.3203022251507095,
+    -1.798151725147077,
+    -0.1083099065271805,
+    -1.5641283085255508,
+    -3.340972002018019
+  ]
+}

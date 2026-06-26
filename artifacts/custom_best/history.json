@@ -1,0 +1,14 @@
+[
+  {
+    "generation": 1,
+    "best_fit": 20605.0,
+    "gen_best": 20605.0,
+    "mean_fit": 18505.0
+  },
+  {
+    "generation": 2,
+    "best_fit": 20705.0,
+    "gen_best": 20705.0,
+    "mean_fit": 19730.0
+  }
+]
