@@ -1,0 +1,49 @@
+{
+  "model": "artifacts\\custom_pure_rl\\ppo_custom_pure.zip",
+  "vec_normalize": "artifacts\\custom_pure_rl\\vec_normalize.pkl",
+  "episodes": 5,
+  "seed_start": 1000,
+  "max_pieces": 500,
+  "deterministic": true,
+  "mean_score": 350.6,
+  "max_score": 415.0,
+  "mean_lines": 0.0,
+  "max_lines": 0,
+  "rows": [
+    {
+      "seed": 1000,
+      "reward": 359.0,
+      "score": 359,
+      "lines": 0,
+      "pieces": 20
+    },
+    {
+      "seed": 1001,
+      "reward": 371.0,
+      "score": 371,
+      "lines": 0,
+      "pieces": 19
+    },
+    {
+      "seed": 1002,
+      "reward": 238.0,
+      "score": 238,
+      "lines": 0,
+      "pieces": 14
+    },
+    {
+      "seed": 1003,
+      "reward": -585.0,
+      "score": 415,
+      "lines": 0,
+      "pieces": 20
+    },
+    {
+      "seed": 1004,
+      "reward": 370.0,
+      "score": 370,
+      "lines": 0,
+      "pieces": 18
+    }
+  ]
+}

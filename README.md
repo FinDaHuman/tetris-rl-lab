@@ -36,9 +36,11 @@ artifacts/
 
 ## Track 1: Pure RL on ALE
 
-This track uses only raw Atari frames and ALE actions. It does not decode the
-board, enumerate placements, use a model of Tetris pieces, or search future
-states. Sticky actions are enabled by default with `--sticky 0.25`.
+This track uses only Atari frames and ALE actions. It does not decode the board,
+enumerate placements, use a model of Tetris pieces, or search future states.
+Default training uses standard Atari preprocessing: grayscale 84x84 frames,
+frame skip, no-op reset, and frame stacking. Sticky actions are enabled by
+default with `--sticky 0.25`.
 
 Smoke the ALE env:
 
@@ -50,12 +52,13 @@ Train a pure PPO model:
 
 ```bash
 python agents/ale/pure_rl_ale_agent.py train --timesteps 100000 --n-envs 4 --sticky 0.25
+python agents/ale/pure_rl_ale_agent.py train --timesteps 10000000 --n-envs 8 --vec-env subproc --sticky 0.25
 ```
 
 Evaluate across many slippery seeds:
 
 ```bash
-python agents/ale/pure_rl_ale_agent.py evaluate --model artifacts/ale_pure_rl/ppo_ale_pure.zip --episodes 25 --sticky 0.25
+python agents/ale/pure_rl_ale_agent.py evaluate --model artifacts/ale_pure_rl/ppo_ale_pure.zip --episodes 25 --sticky 0.25 --out artifacts/ale_pure_rl/evaluation.json
 ```
 
 ## Track 2: Tool-Assisted High Score on ALE
@@ -73,7 +76,7 @@ python ale_tetris_agent.py smoke
 Evaluate the preserved stable copy:
 
 ```bash
-python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0
+python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0 --out artifacts/ale_stable_high_score/evaluation.json
 ```
 
 For continued attempts beyond the 37-line plateau, keep `legacy_model` as the
@@ -117,33 +120,33 @@ python agents/custom/pure_rl_custom_agent.py smoke
 Train a pure PPO model:
 
 ```bash
-python agents/custom/pure_rl_custom_agent.py train --timesteps 100000 --n-envs 4
+python agents/custom/pure_rl_custom_agent.py train --timesteps 5000000 --n-envs 4
 ```
 
 Evaluate it:
 
 ```bash
-python agents/custom/pure_rl_custom_agent.py evaluate --model artifacts/custom_pure_rl/ppo_custom_pure.zip --episodes 10
+python agents/custom/pure_rl_custom_agent.py evaluate --model artifacts/custom_pure_rl/ppo_custom_pure.zip --episodes 10 --deterministic --out artifacts/custom_pure_rl/evaluation.json
 ```
 
 ## Track 4: Tool-Assisted High Score on Custom Env
 
 This track uses the standard custom Tetris engine while allowing planning tools:
-placement enumeration, weighted features, and one-piece lookahead over the
-visible next shape. The game rules remain the engine rules: 10x20 board, hidden
+placement enumeration, weighted features, and internal-queue beam lookahead. The
+game rules remain the engine rules: 10x20 board, hidden
 spawn rows, 7-bag pieces, SRS-style kicks, hard/soft drops, line clears, levels,
 and score-mode line scoring.
 
 Train a custom score-mode model:
 
 ```bash
-python agents/custom/tetris_custom_agent.py train --generations 20 --population 32 --rollouts 4
+python agents/custom/tetris_custom_agent.py train --generations 20 --population 32 --rollouts 4 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
 ```
 
 Evaluate the current custom best:
 
 ```bash
-python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_best/best_weights.npy --episodes 5
+python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_best/best_weights.npy --episodes 5 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
 ```
 
 Render a custom-env episode with the next-piece preview visible:
@@ -168,6 +171,9 @@ score=3700
 pieces=259
 ```
 
+For the legacy ALE planner, `pieces` is a receding-horizon decision count rather
+than a strict locked-piece count.
+
 There is also a separate stable-score copy:
 
 ```text
@@ -177,7 +183,8 @@ artifacts/ale_stable_high_score/best_weights.npy
 Verified command:
 
 ```bash
-python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0
+python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0 --out artifacts/ale_stable_high_score/evaluation.json
 ```
 
-Seeds 0 through 9 all produced `37` lines, score `3700`, and `259` pieces.
+Seeds 0 through 9 all produced `37` lines, score `3700`, and `259` legacy
+decisions.

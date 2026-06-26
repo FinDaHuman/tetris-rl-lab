@@ -8,7 +8,8 @@ Track 1: pure RL on ALE:
 
 - CLI: `agents/ale/pure_rl_ale_agent.py`
 - Default output: `artifacts/ale_pure_rl/ppo_ale_pure.zip`
-- Policy input: raw Atari RGB frames only
+- Policy input: Atari frames only, with standard Atari preprocessing enabled by
+  default for training
 - Default evaluation condition: sticky actions with `--sticky 0.25`
 
 Track 2: tool-assisted high score on ALE:
@@ -29,6 +30,9 @@ Track 3: pure RL on custom env:
 
 - CLI: `agents/custom/pure_rl_custom_agent.py`
 - Default output: `artifacts/custom_pure_rl/ppo_custom_pure.zip`
+- Current starter checkpoint: 200k PPO timesteps with VecNormalize
+- Current starter eval: mean score 350.6 over five 500-piece-cap episodes,
+  seeded 1000 through 1004; no line clears yet
 - Policy input: locked board, active falling-piece mask, current piece state,
   current piece identity, and one next piece
 - Uses only the Gymnasium step API
@@ -41,6 +45,8 @@ Track 4: tool-assisted high score on custom env:
 - Default best-model output: `artifacts/custom_best/best_weights.npy`
 - Initial smoke-trained custom model: mean score 31900.0 over three 200-piece
   episodes seeded at 0, 1, and 2
+- Queue-lookahead evaluation improvement at 100-piece cap, seeds 0 through 2:
+  old one-preview mean score 7900.0; queue depth-2 beam-4 mean score 9500.0
 
 Important environment behavior:
 

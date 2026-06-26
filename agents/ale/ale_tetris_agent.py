@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,12 +12,8 @@ import imageio.v2 as imageio
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-import ale_py
+from agents.ale.env import ENV_ID, estimate_atari_score, make_env, reward_to_lines
 
-
-gym.register_envs(ale_py)
-
-ENV_ID = "ALE/Tetris-v5"
 NOOP, FIRE, RIGHT, LEFT, DOWN = 0, 1, 2, 3, 4
 ACTIONS = (NOOP, FIRE, RIGHT, LEFT, DOWN)
 
@@ -71,17 +66,6 @@ FEATURE_NAMES = (
 )
 FEATURE_SCALE = np.array([4, 200, 200, 100, 100, 220, 220, 20, 100], dtype=np.float64)
 DEFAULT_WEIGHTS = np.array([8.0, -0.55, -4.0, -0.25, -0.8, -0.25, -0.25, -1.5, -3.0], dtype=np.float64)
-
-
-def make_env(*, render_mode: str | None = None, sticky: float = 0.0, obs_type: str = "rgb") -> gym.Env:
-    return gym.make(
-        ENV_ID,
-        obs_type=obs_type,
-        render_mode=render_mode,
-        repeat_action_probability=sticky,
-        frameskip=4,
-        full_action_space=False,
-    )
 
 
 _xs = (FIELD_X0 + (np.arange(N_COLS) + 0.5) * (FIELD_X1 - FIELD_X0 + 1) / N_COLS).round().astype(int)
@@ -411,16 +395,6 @@ def classic_features(board: np.ndarray, lines: int, landing_height: int, eroded:
         ],
         dtype=np.float64,
     )
-
-
-def estimate_atari_score(lines: int) -> int:
-    # Conservative single-line-equivalent score. The ROM may award more for
-    # multi-line clears; this keeps the render target transparent and reproducible.
-    return int(lines * 100)
-
-
-def reward_to_lines(reward: float) -> int:
-    return int(round(reward))
 
 
 @dataclass
@@ -997,6 +971,7 @@ def play_episode(
         "score": score,
         "lines": lines,
         "native_reward": float(total_reward),
+        "decisions": pieces,
         "pieces": pieces,
         "frames": frames,
         "frame_count": len(frames),
@@ -1231,7 +1206,31 @@ def evaluate(args: argparse.Namespace) -> None:
         rows.append(stats)
         print({k: v for k, v in stats.items() if k != "frames"})
     scores = np.array([r["score"] for r in rows], dtype=np.float64)
-    print(f"mean_score={scores.mean():.1f} max_score={scores.max():.1f}")
+    lines = np.array([r["lines"] for r in rows], dtype=np.float64)
+    decisions = np.array([r["decisions"] for r in rows], dtype=np.float64)
+    summary = {
+        "planner": args.planner,
+        "weights": args.weights,
+        "episodes": args.episodes,
+        "seed_start": args.seed,
+        "max_pieces": args.max_pieces,
+        "sticky": args.sticky,
+        "depth": args.depth,
+        "beam": args.beam,
+        "top_k": args.top_k,
+        "mean_score": float(scores.mean()),
+        "max_score": float(scores.max()),
+        "mean_lines": float(lines.mean()),
+        "max_lines": int(lines.max()),
+        "mean_decisions": float(decisions.mean()),
+        "rows": [{k: v for k, v in row.items() if k != "frames"} for row in rows],
+    }
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(f"wrote {out}")
+    print(f"mean_score={scores.mean():.1f} max_score={scores.max():.1f} mean_lines={lines.mean():.1f}")
 
 
 def smoke(_: argparse.Namespace) -> None:
@@ -1287,6 +1286,7 @@ def parse_args() -> argparse.Namespace:
     ep.add_argument("--beam", type=int, default=6)
     ep.add_argument("--top-k", type=int, default=48)
     ep.add_argument("--planner", choices=planner_choices, default="model")
+    ep.add_argument("--out", default=None)
 
     rp = sub.add_parser("render")
     rp.add_argument("--weights", default=None)

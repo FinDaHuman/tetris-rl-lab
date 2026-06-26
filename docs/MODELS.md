@@ -21,10 +21,12 @@ learning. It should work across many seeds and slippery/sticky action settings.
 Score can be low; the important property is that the model is pure RL.
 
 - Entry point: `agents/ale/pure_rl_ale_agent.py`
+- Shared environment helper: `agents/ale/env.py`
 - Environment: `ALE/Tetris-v5`
 - Default artifact: `artifacts/ale_pure_rl/ppo_ale_pure.zip`
 - Current algorithm: PPO from Stable-Baselines3
-- Policy input: raw Atari RGB frames only
+- Policy input: Atari frames only; default training uses standard Atari
+  preprocessing to grayscale 84x84 frames plus frame stacking
 - Policy output: ALE discrete actions
 - Default slippery setting: `--sticky 0.25`
 - Disallowed assistance: board decoding, piece detection, placement search,
@@ -35,7 +37,8 @@ Commands:
 ```bash
 python agents/ale/pure_rl_ale_agent.py smoke
 python agents/ale/pure_rl_ale_agent.py train --timesteps 100000 --n-envs 4 --sticky 0.25
-python agents/ale/pure_rl_ale_agent.py evaluate --model artifacts/ale_pure_rl/ppo_ale_pure.zip --episodes 25 --sticky 0.25
+python agents/ale/pure_rl_ale_agent.py train --timesteps 10000000 --n-envs 8 --vec-env subproc --sticky 0.25
+python agents/ale/pure_rl_ale_agent.py evaluate --model artifacts/ale_pure_rl/ppo_ale_pure.zip --episodes 25 --sticky 0.25 --out artifacts/ale_pure_rl/evaluation.json
 ```
 
 ## Track 2: Tool-Assisted High Score on ALE
@@ -62,7 +65,7 @@ Commands:
 
 ```bash
 python ale_tetris_agent.py smoke
-python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0
+python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0 --out artifacts/ale_stable_high_score/evaluation.json
 python ale_tetris_agent.py train --planner legacy_model --warm-start artifacts/ale_stable_high_score/best_weights.npy --generations 50 --population 48 --rollouts 4 --max-pieces 500
 python ale_tetris_agent.py train --planner legacy_calibrated --warm-start artifacts/ale_stable_high_score/best_weights.npy --generations 20 --population 24 --rollouts 2 --max-pieces 500 --top-k 32
 ```
@@ -81,6 +84,8 @@ only through the Gymnasium step API.
   piece row/col/rotation, current-piece one-hot, next-piece one-hot
 - Current observation size: 417 floats
 - Policy output: custom env discrete actions
+- Training setup: VecNormalize for observations/rewards, checkpoint callbacks,
+  deterministic evaluation JSON, configurable MLP size
 - Disallowed assistance: placement enumeration, direct board edits, lookahead,
   search, access to future pieces beyond one next piece
 
@@ -88,8 +93,8 @@ Commands:
 
 ```bash
 python agents/custom/pure_rl_custom_agent.py smoke
-python agents/custom/pure_rl_custom_agent.py train --timesteps 100000 --n-envs 4
-python agents/custom/pure_rl_custom_agent.py evaluate --model artifacts/custom_pure_rl/ppo_custom_pure.zip --episodes 10
+python agents/custom/pure_rl_custom_agent.py train --timesteps 5000000 --n-envs 4
+python agents/custom/pure_rl_custom_agent.py evaluate --model artifacts/custom_pure_rl/ppo_custom_pure.zip --episodes 10 --deterministic --out artifacts/custom_pure_rl/evaluation.json
 ```
 
 ## Track 4: Tool-Assisted High Score on Custom Env
@@ -102,16 +107,17 @@ game rules standard. This is the fast planning/optimization track.
 - Environment and engine: `packages/tetris_env`
 - Default artifact: `artifacts/custom_best/best_weights.npy`
 - Current method: weighted placement features optimized by CEM-style training
+  with queue-aware beam lookahead
 - Assistance used: placement enumeration, board features, direct engine cloning,
-  one-piece lookahead
+  internal queue lookahead
 - Rule boundary: the agent may plan, but the engine remains standard Tetris
   logic and physics for this project
 
 Commands:
 
 ```bash
-python agents/custom/tetris_custom_agent.py train --generations 20 --population 32 --rollouts 4
-python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_best/best_weights.npy --episodes 5
+python agents/custom/tetris_custom_agent.py train --generations 20 --population 32 --rollouts 4 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
+python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_best/best_weights.npy --episodes 5 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
 python agents/custom/render_custom_episode.py --weights artifacts/custom_best/best_weights.npy --out artifacts/custom_best/custom_episode.mp4
 ```
 
