@@ -270,43 +270,85 @@ class TetrisGame:
             self.queue.extend(bag)
 
 
-def enumerate_placements(game: TetrisGame, piece: str | None = None) -> list[Placement]:
-    if game.current is None or game.game_over:
-        return []
-    placements: list[Placement] = []
-    seen: set[tuple[int, int]] = set()
-    piece_name = game.current.name if piece is None else piece
+def _shape_drop_data(piece_name: str) -> tuple[tuple, ...]:
+    """Per-rotation static data for fast placement enumeration."""
+    data = []
     for rotation in range(4):
         shape = PIECES[piece_name][rotation]
         min_col = -min(c for _, c in shape)
         max_col = COLS - max(c for _, c in shape)
+        min_row = min(r for r, _ in shape)
+        bottoms: dict[int, int] = {}
+        for r, c in shape:
+            bottoms[c] = max(bottoms.get(c, -1), r)
+        data.append((shape, min_col, max_col, min_row, tuple(bottoms.items())))
+    return tuple(data)
+
+
+_SHAPE_DROP_CACHE = {name: _shape_drop_data(name) for name in PIECES}
+
+
+def enumerate_placements(game: TetrisGame, piece: str | None = None) -> list[Placement]:
+    if game.current is None or game.game_over:
+        return []
+    placements: list[Placement] = []
+    seen: set[tuple[tuple[int, int], ...]] = set()
+    piece_name = game.current.name if piece is None else piece
+    board = game.board
+    filled = board != 0
+    has_any = filled.any(axis=0)
+    tops = np.where(has_any, filled.argmax(axis=0), ROWS)
+    start_row = game.current.row
+    level_multiplier = game.level + 1
+    for rotation, (shape, min_col, max_col, min_row, bottoms) in enumerate(_SHAPE_DROP_CACHE[piece_name]):
         for col in range(min_col, max_col):
-            trial = game.clone()
-            trial.current = PieceState(piece_name, game.current.row, col, rotation)
-            if trial.collides(trial.current):
+            # Symmetric rotations (O all four, I/S/Z opposite pairs) produce the
+            # same final footprint; enumerate each footprint once.
+            footprint = tuple(sorted((r - min_row, c + col) for r, c in shape))
+            if footprint in seen:
                 continue
-            start_row = trial.current.row
-            while trial._try_shift(1, 0):
-                pass
-            key = (trial.current.rotation, trial.current.col)
-            if key in seen:
+            blocked = False
+            for r, c in shape:
+                rr = r + start_row
+                if rr >= ROWS or filled[rr, c + col]:
+                    blocked = True
+                    break
+            if blocked:
                 continue
-            seen.add(key)
-            score_before = trial.score
-            lines_before = trial.lines
-            drop_distance = trial.current.row - start_row
-            landing_row = max(row for row, _ in trial.cells())
-            trial._lock_piece()
+            seen.add(footprint)
+            landing_row = min(int(tops[c + col]) - 1 - b for c, b in bottoms)
+            if landing_row < start_row:
+                # The spawn position sits inside a covered pocket below a column
+                # top; fall back to the exact cell-wise drop.
+                landing_row = start_row
+                while True:
+                    nxt = landing_row + 1
+                    if any(r + nxt >= ROWS or filled[r + nxt, c + col] for r, c in shape):
+                        break
+                    landing_row = nxt
+            new_board = board.copy()
+            max_row = 0
+            for r, c in shape:
+                rr = r + landing_row
+                new_board[rr, c + col] = 1
+                if rr > max_row:
+                    max_row = rr
+            full = np.all(new_board != 0, axis=1)
+            cleared = int(full.sum())
+            if cleared:
+                kept = new_board[~full]
+                new_board = np.zeros_like(board)
+                new_board[ROWS - len(kept):] = kept
             placements.append(
                 Placement(
                     piece=piece_name,
                     rotation=rotation,
                     col=col,
-                    board=trial.board.copy(),
-                    lines=trial.lines - lines_before,
-                    score_delta=trial.score - score_before,
-                    drop_distance=max(0, drop_distance),
-                    landing_height=ROWS - landing_row,
+                    board=new_board,
+                    lines=cleared,
+                    score_delta=LINE_SCORES[cleared] * level_multiplier,
+                    drop_distance=max(0, landing_row - start_row),
+                    landing_height=ROWS - max_row,
                 )
             )
     return placements

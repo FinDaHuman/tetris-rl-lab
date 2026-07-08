@@ -86,6 +86,13 @@ only through the Gymnasium step API.
 - Policy output: custom env discrete actions
 - Training setup: VecNormalize for observations/rewards, checkpoint callbacks,
   deterministic evaluation JSON, configurable MLP size
+- Reward modes (`--reward-mode`, default `lines`):
+  - `lines`: `line_reward * cleared^2` per lock + `piece_reward` per placed
+    piece - `top_out_penalty` on termination; no drop points. This is the
+    recommended mode: the old score reward paid dense per-cell drop points
+    that dominated the sparse line reward and taught drop-fast behavior.
+  - `score`: raw engine score deltas (legacy behavior, kept for older
+    checkpoints).
 - Disallowed assistance: placement enumeration, direct board edits, lookahead,
   search, access to future pieces beyond one next piece
 
@@ -93,7 +100,7 @@ Commands:
 
 ```bash
 python agents/custom/pure_rl_custom_agent.py smoke
-python agents/custom/pure_rl_custom_agent.py train --timesteps 5000000 --n-envs 4
+python agents/custom/pure_rl_custom_agent.py train --timesteps 5000000 --n-envs 8 --reward-mode lines
 python agents/custom/pure_rl_custom_agent.py evaluate --model artifacts/custom_pure_rl/ppo_custom_pure.zip --episodes 10 --deterministic --out artifacts/custom_pure_rl/evaluation.json
 ```
 
@@ -108,6 +115,12 @@ game rules standard. This is the fast planning/optimization track.
 - Default artifact: `artifacts/custom_best/best_weights.npy`
 - Current method: weighted placement features optimized by CEM-style training
   with queue-aware beam lookahead
+- Best-weights promotion during training uses a fixed held-out seed set
+  (`--holdout-rollouts`, default 3), not the per-generation training seeds;
+  `history.json` records both train and holdout fitness
+- Placement enumeration is a vectorized drop simulation that dedupes
+  symmetric rotations (O, and the I/S/Z opposite pairs); a 500-piece
+  queue-lookahead episode runs in roughly 15 seconds on the reference laptop
 - Assistance used: placement enumeration, board features, direct engine cloning,
   internal queue lookahead
 - Rule boundary: the agent may plan, but the engine remains standard Tetris

@@ -189,8 +189,26 @@ def train(args: argparse.Namespace) -> None:
     rng = np.random.default_rng(args.seed)
     mean = load_weights(args.warm_start)
     std = np.full(len(mean), args.init_std, dtype=np.float64)
+
+    def holdout_fitness(weights: np.ndarray) -> float:
+        # Fixed seed set, disjoint from per-generation training seeds, so that
+        # best-weights promotion compares like against like across generations
+        # instead of rewarding a lucky training-seed draw.
+        seeds = [args.seed * 10000 + 999_000 + i for i in range(args.holdout_rollouts)]
+        return evaluate_weights(
+            weights,
+            seeds=seeds,
+            max_pieces=args.max_pieces,
+            lookahead_weight=args.lookahead_weight,
+            lookahead_candidates=args.lookahead_candidates,
+            lookahead_depth=args.lookahead_depth,
+            future_source=args.future_source,
+        )
+
     best_weights = mean.copy()
-    best_fit = -math.inf
+    best_fit = holdout_fitness(mean)
+    np.save(outdir / "best_weights.npy", best_weights)
+    print(f"initial holdout fitness: {best_fit:.1f}")
     history = []
     for generation in range(1, args.generations + 1):
         population = mean[None, :] + rng.standard_normal((args.population, len(mean))) * std[None, :]
@@ -214,21 +232,24 @@ def train(args: argparse.Namespace) -> None:
         mean = elite.mean(axis=0)
         std = elite.std(axis=0) + args.noise_floor
         gen_best_idx = int(np.argmax(fitness))
-        if float(fitness[gen_best_idx]) > best_fit:
-            best_fit = float(fitness[gen_best_idx])
+        candidate_holdout = holdout_fitness(population[gen_best_idx])
+        if candidate_holdout > best_fit:
+            best_fit = candidate_holdout
             best_weights = population[gen_best_idx].copy()
             np.save(outdir / "best_weights.npy", best_weights)
         row = {
             "generation": generation,
-            "best_fit": best_fit,
-            "gen_best": float(fitness.max()),
-            "mean_fit": float(fitness.mean()),
+            "gen_best_train": float(fitness.max()),
+            "mean_fit_train": float(fitness.mean()),
+            "gen_best_holdout": candidate_holdout,
+            "best_holdout": best_fit,
         }
         history.append(row)
         (outdir / "history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
         print(
-            f"gen {generation:03d}: gen_best={fitness.max():.1f} "
-            f"mean={fitness.mean():.1f} best={best_fit:.1f}"
+            f"gen {generation:03d}: gen_best_train={fitness.max():.1f} "
+            f"mean_train={fitness.mean():.1f} gen_holdout={candidate_holdout:.1f} "
+            f"best_holdout={best_fit:.1f}"
         )
     np.save(outdir / "mean_weights.npy", mean)
     (outdir / "meta.json").write_text(
@@ -236,6 +257,8 @@ def train(args: argparse.Namespace) -> None:
             {
                 "feature_names": FEATURE_NAMES,
                 "best_fit": best_fit,
+                "best_fit_metric": "holdout",
+                "holdout_rollouts": args.holdout_rollouts,
                 "weights": best_weights.tolist(),
                 "lookahead_weight": args.lookahead_weight,
                 "lookahead_candidates": args.lookahead_candidates,
@@ -306,6 +329,7 @@ def parse_args() -> argparse.Namespace:
     train_parser.add_argument("--init-std", type=float, default=4.0)
     train_parser.add_argument("--noise-floor", type=float, default=0.05)
     train_parser.add_argument("--rollouts", type=int, default=4)
+    train_parser.add_argument("--holdout-rollouts", type=int, default=3)
     train_parser.add_argument("--max-pieces", type=int, default=3000)
     train_parser.add_argument("--seed", type=int, default=0)
     train_parser.add_argument("--warm-start", default=None)

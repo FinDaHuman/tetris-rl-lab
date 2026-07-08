@@ -32,6 +32,15 @@ def _model_path(path: str | Path) -> Path:
     return path if path.suffix == ".zip" else path / f"{MODEL_NAME}.zip"
 
 
+def _json_default(value):
+    """Make NumPy scalars/arrays from ALE episode info JSON-serializable."""
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f"not JSON serializable: {type(value).__name__}")
+
+
 def make_vector_env(
     *,
     n_envs: int,
@@ -236,7 +245,7 @@ def evaluate(args: argparse.Namespace) -> None:
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        out.write_text(json.dumps(summary, indent=2, default=_json_default), encoding="utf-8")
         print(f"wrote {out}")
     print(f"mean_native_reward={rewards.mean():.2f} max_native_reward={rewards.max():.2f}")
 

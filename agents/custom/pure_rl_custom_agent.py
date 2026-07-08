@@ -45,8 +45,25 @@ class FlatTetrisObservation(gym.ObservationWrapper):
         )
 
 
-def make_env(*, max_pieces: int = 1000, seed: int | None = None) -> gym.Env:
-    return FlatTetrisObservation(TetrisScoreEnv(max_pieces=max_pieces, seed=seed))
+def make_env(
+    *,
+    max_pieces: int = 1000,
+    seed: int | None = None,
+    reward_mode: str = "lines",
+    line_reward: float = 10.0,
+    piece_reward: float = 0.25,
+    top_out_penalty: float = 10.0,
+) -> gym.Env:
+    return FlatTetrisObservation(
+        TetrisScoreEnv(
+            max_pieces=max_pieces,
+            seed=seed,
+            reward_mode=reward_mode,
+            line_reward=line_reward,
+            piece_reward=piece_reward,
+            top_out_penalty=top_out_penalty,
+        )
+    )
 
 
 def _import_sb3():
@@ -70,12 +87,28 @@ def _stats_path(model: str | Path, explicit: str | None = None) -> Path:
     return base / VEC_NORMALIZE_NAME
 
 
-def make_vector_env(*, n_envs: int, max_pieces: int, seed: int):
+def make_vector_env(
+    *,
+    n_envs: int,
+    max_pieces: int,
+    seed: int,
+    reward_mode: str = "lines",
+    line_reward: float = 10.0,
+    piece_reward: float = 0.25,
+    top_out_penalty: float = 10.0,
+):
     _, _, _, _, DummyVecEnv, VecMonitor, _ = _import_sb3()
 
     def build(rank: int):
         def _init():
-            return make_env(max_pieces=max_pieces, seed=seed + rank)
+            return make_env(
+                max_pieces=max_pieces,
+                seed=seed + rank,
+                reward_mode=reward_mode,
+                line_reward=line_reward,
+                piece_reward=piece_reward,
+                top_out_penalty=top_out_penalty,
+            )
 
         return _init
 
@@ -96,7 +129,13 @@ def train(args: argparse.Namespace) -> None:
     logdir = Path(args.logdir)
     logdir.mkdir(parents=True, exist_ok=True)
 
-    env = make_vector_env(n_envs=args.n_envs, max_pieces=args.max_pieces, seed=args.seed)
+    reward_kwargs = {
+        "reward_mode": args.reward_mode,
+        "line_reward": args.line_reward,
+        "piece_reward": args.piece_reward,
+        "top_out_penalty": args.top_out_penalty,
+    }
+    env = make_vector_env(n_envs=args.n_envs, max_pieces=args.max_pieces, seed=args.seed, **reward_kwargs)
     env = apply_vec_normalize(env, enabled=args.normalize, gamma=args.gamma, clip_obs=args.clip_obs)
     callbacks = []
     if args.checkpoint_freq > 0:
@@ -109,7 +148,7 @@ def train(args: argparse.Namespace) -> None:
             )
         )
     if args.eval_freq > 0:
-        eval_env = make_vector_env(n_envs=1, max_pieces=args.max_pieces, seed=args.eval_seed)
+        eval_env = make_vector_env(n_envs=1, max_pieces=args.max_pieces, seed=args.eval_seed, **reward_kwargs)
         if args.normalize:
             eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=args.clip_obs, gamma=args.gamma)
             eval_env.training = False
@@ -165,6 +204,10 @@ def train(args: argparse.Namespace) -> None:
                 "model": str(target),
                 "timesteps": args.timesteps,
                 "max_pieces": args.max_pieces,
+                "reward_mode": args.reward_mode,
+                "line_reward": args.line_reward,
+                "piece_reward": args.piece_reward,
+                "top_out_penalty": args.top_out_penalty,
                 "n_envs": args.n_envs,
                 "seed": args.seed,
                 "device": args.device,
@@ -193,7 +236,7 @@ def train(args: argparse.Namespace) -> None:
 def evaluate(args: argparse.Namespace) -> None:
     PPO, _, _, _, _, _, VecNormalize = _import_sb3()
     model_path = _model_path(args.model)
-    env = make_vector_env(n_envs=1, max_pieces=args.max_pieces, seed=args.seed)
+    env = make_vector_env(n_envs=1, max_pieces=args.max_pieces, seed=args.seed, reward_mode=args.reward_mode)
     stats_path = _stats_path(model_path, args.vec_normalize)
     if args.normalize and stats_path.exists():
         env = VecNormalize.load(stats_path, env)
@@ -234,6 +277,7 @@ def evaluate(args: argparse.Namespace) -> None:
         "episodes": args.episodes,
         "seed_start": args.seed,
         "max_pieces": args.max_pieces,
+        "reward_mode": args.reward_mode,
         "deterministic": args.deterministic,
         "mean_score": float(scores.mean()),
         "max_score": float(scores.max()),
@@ -250,7 +294,7 @@ def evaluate(args: argparse.Namespace) -> None:
 
 
 def smoke(args: argparse.Namespace) -> None:
-    env = make_env(max_pieces=args.max_pieces, seed=args.seed)
+    env = make_env(max_pieces=args.max_pieces, seed=args.seed, reward_mode=args.reward_mode)
     obs, info = env.reset(seed=args.seed)
     total_reward = 0.0
     terminated = truncated = False
@@ -282,12 +326,17 @@ def parse_args() -> argparse.Namespace:
     smoke_parser.add_argument("--steps", type=int, default=32)
     smoke_parser.add_argument("--max-pieces", type=int, default=100)
     smoke_parser.add_argument("--seed", type=int, default=0)
+    smoke_parser.add_argument("--reward-mode", choices=("score", "lines"), default="lines")
 
     train_parser = sub.add_parser("train")
     train_parser.add_argument("--outdir", default="artifacts/custom_pure_rl")
     train_parser.add_argument("--timesteps", type=int, default=100_000)
     train_parser.add_argument("--n-envs", type=int, default=4)
     train_parser.add_argument("--max-pieces", type=int, default=1000)
+    train_parser.add_argument("--reward-mode", choices=("score", "lines"), default="lines")
+    train_parser.add_argument("--line-reward", type=float, default=10.0)
+    train_parser.add_argument("--piece-reward", type=float, default=0.25)
+    train_parser.add_argument("--top-out-penalty", type=float, default=10.0)
     train_parser.add_argument("--seed", type=int, default=0)
     train_parser.add_argument("--n-steps", type=int, default=512)
     train_parser.add_argument("--batch-size", type=int, default=256)
@@ -314,6 +363,7 @@ def parse_args() -> argparse.Namespace:
     eval_parser.add_argument("--model", default="artifacts/custom_pure_rl/ppo_custom_pure.zip")
     eval_parser.add_argument("--episodes", type=int, default=10)
     eval_parser.add_argument("--max-pieces", type=int, default=1000)
+    eval_parser.add_argument("--reward-mode", choices=("score", "lines"), default="lines")
     eval_parser.add_argument("--seed", type=int, default=1000)
     eval_parser.add_argument("--device", default="cpu")
     eval_parser.add_argument("--deterministic", action="store_true")

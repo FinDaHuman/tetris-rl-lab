@@ -1,0 +1,154 @@
+# Training Plan — 2026-07-08
+
+All code changes for this plan are already implemented and tested (`python -m
+pytest` → 14 passed). This file contains only the commands left to run, in
+order. Nothing here retrains anything by surprise; every step writes its
+outputs under `runs/plan_20260708/` and every night is wrapped in a PowerShell
+transcript so the full console log is preserved for the report.
+
+What changed in the code (summary):
+
+- Track 4 planning is ~5x faster: `enumerate_placements` was rewritten as a
+  numpy drop simulation (with an exact cell-wise fallback for covered pockets),
+  symmetric duplicate rotations are no longer scored, and the placement
+  features were vectorized. A 500-piece queue-lookahead episode now takes ~15s
+  instead of ~78s. An oracle test (`tests/test_engine_placements.py`) proves
+  the new enumeration produces the same placement set as the old code.
+- Track 4 CEM training now promotes `best_weights.npy` using a fixed held-out
+  seed set instead of the per-generation training seeds, so the saved best is
+  no longer a lucky-seed artifact. `history.json` now records both train and
+  holdout fitness.
+- Track 3 has a new `--reward-mode lines` (now the default): reward is
+  `10 * lines_cleared^2` per lock `+ 0.25` per placed piece `- 10` on top-out,
+  and no drop points. The old score-based reward paid ~30+ points per piece
+  just for dropping fast, which is why 200k steps learned zero line clears.
+  The old behavior is still available with `--reward-mode score`.
+- Track 1 `evaluate --out` no longer crashes on NumPy scalars in ALE episode
+  info; eval JSON can be saved again.
+
+Expected line ceilings for context: at a 500-piece cap the maximum possible is
+200 lines (4 cells per piece, 10 per row). Default (untrained) weights already
+reach ~192 lines at 500 pieces with queue lookahead, so Track 4 gains will be
+in the last few lines and in mean consistency.
+
+---
+
+## Night 1 — Track 4 at 500 pieces + Track 3 timing pilot (~4.5 h total)
+
+Run from the repo root in PowerShell, top to bottom. The transcript captures
+every console line; the `--out` files capture machine-readable results.
+
+```powershell
+New-Item -ItemType Directory -Force -Path runs\plan_20260708
+Start-Transcript -Path runs\plan_20260708\night1_transcript.txt -Append
+
+# 1.1  Sanity: full test suite (about 1 minute). Abort the night if this fails.
+python -m pytest
+
+# 1.2  Validate the current Track 4 best at 500 pieces (about 2 minutes).
+python agents/custom/tetris_custom_agent.py evaluate --weights runs/overnight_lines_20260707/custom_tool_queue/best_weights.npy --episodes 5 --max-pieces 500 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue --out runs/plan_20260708/track4_eval500_current.json
+
+# 1.3  Track 4: warm-start CEM training at 500 pieces (about 4 hours).
+#      75 episodes per generation (24 pop x 3 rollouts + 3 holdout) x ~15 s.
+python agents/custom/tetris_custom_agent.py train --outdir runs/plan_20260708/track4_queue_500 --warm-start runs/overnight_lines_20260707/custom_tool_queue/best_weights.npy --generations 12 --population 24 --rollouts 3 --holdout-rollouts 3 --max-pieces 500 --seed 17 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
+
+# 1.4  Evaluate the new Track 4 weights at 500 pieces (about 3 minutes).
+python agents/custom/tetris_custom_agent.py evaluate --weights runs/plan_20260708/track4_queue_500/best_weights.npy --episodes 10 --max-pieces 500 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue --out runs/plan_20260708/track4_queue_500/evaluation_500.json
+
+# 1.5  Track 3: 100k-step timing pilot with the new lines reward (15-30 min).
+#      Purpose: read the "fps" value from the console log to size Night 2.
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lines_pilot --logdir runs/plan_20260708/track3_lines_pilot_logs --timesteps 100000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --eval-freq 50000 --checkpoint-freq 0
+
+Stop-Transcript
+```
+
+**Decision gate after Night 1:**
+
+- Track 4 promotion: promote only if `evaluation_500.json` (step 1.4) beats
+  `track4_eval500_current.json` (step 1.2) on mean lines. To promote:
+
+```powershell
+Copy-Item runs\plan_20260708\track4_queue_500\best_weights.npy artifacts\custom_best\best_weights.npy
+Copy-Item runs\plan_20260708\track4_queue_500\evaluation_500.json artifacts\custom_best\evaluation_500.json
+Copy-Item runs\plan_20260708\track4_queue_500\history.json artifacts\custom_best\history.json
+Copy-Item runs\plan_20260708\track4_queue_500\meta.json artifacts\custom_best\meta.json
+```
+
+- Track 3 sizing: note the steady-state `fps` printed by the pilot. Night 2
+  timesteps = fps x 3600 x hours you can spare. Example: 250 fps x 8 h ≈ 7M.
+  Use 5,000,000 if fps ≥ ~180, otherwise cut to 3,000,000.
+
+## Night 2 — Track 3 main run with the lines reward (full overnight)
+
+```powershell
+Start-Transcript -Path runs\plan_20260708\night2_transcript.txt -Append
+
+# 2.1  Track 3: main PPO run on the lines reward (size from the pilot; the
+#      command below assumes 5M steps).
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lines_5m --logdir runs/plan_20260708/track3_lines_5m_logs --timesteps 5000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --eval-freq 250000 --checkpoint-freq 1000000
+
+# 2.2  Evaluate the final model (about 10-20 minutes for 25 episodes).
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_5m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lines_5m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_5m/evaluation.json
+
+# 2.3  Also evaluate the eval-callback best model. Note: this pairs the
+#      callback-best policy with the final VecNormalize stats, which is the
+#      standard approximation; matching per-checkpoint stats live under the
+#      checkpoints directory if you want an exact pairing.
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_5m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lines_5m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_5m/evaluation_best.json
+
+Stop-Transcript
+```
+
+**Decision gate after Night 2:**
+
+- Any nonzero `mean_lines` is the first pure-RL line-clearing result in the
+  project — promote whichever of 2.2/2.3 is better into
+  `artifacts/custom_pure_rl/` (model zip, `vec_normalize.pkl`, evaluation
+  JSON, `meta.json`).
+- If still 0 lines: do not add more timesteps. The next levers, in order, are
+  a higher `--line-reward` (e.g. 50), longer training `--max-pieces`, and an
+  entropy schedule — one change at a time.
+
+## Night 3 (optional) — Track 1 final documented attempt
+
+Only if you want a "non-sticky also failed / succeeded" data point for the
+report. Expectation is 0 lines; that is a valid negative result. About 6-12 h
+for 3M frames on this machine — check fps after the first 10 minutes and abort
+if the projected finish is unacceptable.
+
+```powershell
+Start-Transcript -Path runs\plan_20260708\night3_transcript.txt -Append
+
+# 3.1  Track 1: 3M non-sticky PPO (dummy vec env: safest for RAM).
+python agents/ale/pure_rl_ale_agent.py train --outdir runs/plan_20260708/track1_nosticky_3m --logdir runs/plan_20260708/track1_nosticky_logs --timesteps 3000000 --n-envs 4 --vec-env dummy --sticky 0.0 --eval-freq 250000 --checkpoint-freq 1000000
+
+# 3.2  Evaluate final and callback-best models (JSON --out works now).
+python agents/ale/pure_rl_ale_agent.py evaluate --model runs/plan_20260708/track1_nosticky_3m/ppo_ale_pure.zip --episodes 25 --sticky 0.0 --out runs/plan_20260708/track1_nosticky_3m/evaluation.json
+python agents/ale/pure_rl_ale_agent.py evaluate --model runs/plan_20260708/track1_nosticky_3m/best/best_model.zip --episodes 25 --sticky 0.0 --out runs/plan_20260708/track1_nosticky_3m/evaluation_best.json
+
+# 3.3  Track 2: cheap baseline confirmation (unchanged code path, ~10 min).
+python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 3 --max-pieces 400 --seed 0 --out runs/plan_20260708/track2_confirm.json
+
+Stop-Transcript
+```
+
+## Evidence produced by this plan (preserve for the report)
+
+- `runs/plan_20260708/night*_transcript.txt` — full console logs.
+- `runs/plan_20260708/track4_eval500_current.json` vs
+  `runs/plan_20260708/track4_queue_500/evaluation_500.json` — Track 4
+  before/after at 500 pieces.
+- `runs/plan_20260708/track4_queue_500/history.json` — CEM train vs holdout
+  fitness per generation (new format).
+- `runs/plan_20260708/track3_lines_5m/evaluation*.json` — first Track 3
+  result under the lines reward.
+- `runs/plan_20260708/track1_nosticky_3m/evaluation*.json` — Track 1
+  non-sticky outcome (optional night).
+
+## Caution on comparing to older numbers
+
+The duplicate-rotation fix means Track 4 beam search now considers slightly
+more distinct candidates, so evaluations of the *same weights* can differ
+mildly from pre-change numbers (spot check: 2 episodes x 60 pieces went from
+mean score 3450/21.0 lines to 3550/21.5 lines — equal or better). Cite
+post-change evaluations for the report rather than mixing eras.

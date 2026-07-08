@@ -1,59 +1,95 @@
-# Training Notes — Tracks 1 & 3 (Pure RL)
+# Overnight Clear-Line Plan
 
-Status: Tracks 1 (ALE pure RL) and 3 (Custom pure RL) are **untrained** — only
-tiny smoke runs exist (4 and 8 timesteps). Tracks 2 and 4 (tool-assisted) are
-the only ones with real results.
+Goal: increase clear lines across all four tracks while respecting the project
+track boundaries in `AGENTS.md`.
 
-## Hardware (this machine)
-- CPU: Intel i7-11800H, 8 cores / 16 logical
-- GPU: NVIDIA RTX 3050 Ti Laptop (4 GB) — CUDA works (torch 2.6.0+cu124)
-- RAM: 7.8 GB total (LOW — main OOM risk)
-- Python 3.11.9, stable-baselines3 2.8.0
+Current read from the last run:
 
-## Measured throughput (benchmarked, not guessed)
-| Track | Policy | Device (actual) | Steady fps |
-|-------|--------|-----------------|------------|
-| 1 — ALE pure RL | CnnPolicy (84x84x4 frames) | CUDA | ~178 fps |
-| 3 — Custom pure RL | MlpPolicy (417-float vec) | CPU (forced in code) | ~4,100 fps |
+- Track 1, ALE pure RL: 10M PPO timesteps finished, but eval printed 0 lines in
+  all 25 episodes. Repeating the exact same command is not the best next use of
+  time.
+- Track 2, ALE tool-assisted: stable at 37 lines on checked seeds. Treat this
+  as the current low-end-machine plateau unless you want a high-risk search.
+- Track 3, custom pure RL: only 200k timesteps so far and 0 lines. This is the
+  cheapest pure-RL track to improve.
+- Track 4, custom tool-assisted: strongest custom result so far. Queue
+  lookahead is expensive but gives the best line count.
 
-Both use `DummyVecEnv` → the 4 envs step **sequentially**, so extra CPU cores
-don't add env parallelism. Track 1 bottleneck is the Atari emulator stepping,
-not the GPU.
+Important known issue:
 
-## Wall-clock estimates (timesteps ÷ fps + ~5-10s startup)
+- `agents/ale/pure_rl_ale_agent.py evaluate --out ...` currently crashes while
+  writing JSON because ALE episode info contains NumPy scalar values. Until that
+  is fixed, run ALE pure-RL eval without `--out` and save the terminal transcript.
 
-Track 3 — Custom (fast):
-- 100k (default cmd): ~30 seconds
-- 1M (real learning starts): ~4 minutes
-- 10M (well-trained): ~40 minutes
+## Best Overnight Queue
 
-Track 1 — ALE (slow):
-- 100k (default cmd): ~9-10 minutes
-- 1M: ~1.6 hours
-- 5M: ~8 hours
-- 10M (realistic for Atari Tetris): ~15-16 hours
+Run this from the repo root in PowerShell. It writes all console output into one
+transcript under `runs/overnight_lines_20260707/`.
 
-## Key caveat
-The default `--timesteps 100000` finishes fast but is **far too short to learn
-Tetris**, especially on ALE. Atari from raw pixels needs ~1M-10M+ frames; 100k
-gives a near-random policy. README defaults are smoke-sized, not training-sized.
+```powershell
+New-Item -ItemType Directory -Force -Path runs\overnight_lines_20260707
+Start-Transcript -Path runs\overnight_lines_20260707\powershell_output.txt
 
-## Recommendations / TODO
-- Track 3: cheap — just run `--timesteps 5000000` (~20 min) for a genuinely
-  trained model.
-- Track 1: budget an overnight run at 5-10M timesteps (8-16 h).
-  - Real speedup lever is env throughput, NOT the GPU: switch
-    `DummyVecEnv` -> `SubprocVecEnv` and raise `--n-envs` to ~8-12 to
-    parallelize Atari stepping across the 16 logical cores (~2-4x fps).
-  - WATCH RAM: at 7.8 GB, high `--n-envs` with `SubprocVecEnv` (forks
-    separate processes, each loads torch) is the main OOM risk. Scale up
-    gradually.
+# Track 3: pure RL on custom env.
+# Best first use of compute: this track is undertrained and fast.
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/overnight_lines_20260707/custom_pure_rl_20m --logdir runs/overnight_lines_20260707/custom_pure_rl_logs --timesteps 20000000 --n-envs 4 --max-pieces 1000 --seed 7 --eval-freq 500000 --checkpoint-freq 1000000
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/overnight_lines_20260707/custom_pure_rl_20m/ppo_custom_pure.zip --vec-normalize runs/overnight_lines_20260707/custom_pure_rl_20m/vec_normalize.pkl --episodes 25 --max-pieces 1000 --deterministic --out runs/overnight_lines_20260707/custom_pure_rl_20m/evaluation.json
 
-## Commands
-```bash
-# Track 3 (custom, fast)
-python agents/custom/pure_rl_custom_agent.py train --timesteps 5000000 --n-envs 4
+# Track 4: tool-assisted custom env.
+# Warm-start the current best and optimize directly under queue lookahead.
+# This is expensive, but it is the best proper approach for higher clear lines.
+python agents/custom/tetris_custom_agent.py train --outdir runs/overnight_lines_20260707/custom_tool_queue --warm-start artifacts/custom_best/best_weights.npy --generations 12 --population 24 --rollouts 3 --max-pieces 200 --seed 7 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
+python agents/custom/tetris_custom_agent.py evaluate --weights runs/overnight_lines_20260707/custom_tool_queue/best_weights.npy --episodes 10 --max-pieces 200 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue --out runs/overnight_lines_20260707/custom_tool_queue/evaluation_200.json
 
-# Track 1 (ALE, slow / overnight)
-python agents/ale/pure_rl_ale_agent.py train --timesteps 10000000 --n-envs 4 --sticky 0.25
+# Track 1: pure RL on ALE.
+# The last sticky-action 10M run failed, so this is an easier pure-RL line-clear
+# attempt: non-sticky ALE, more timesteps, and SubprocVecEnv for throughput.
+# If RAM fails, use the fallback command below instead.
+python agents/ale/pure_rl_ale_agent.py train --outdir runs/overnight_lines_20260707/ale_pure_rl_nosticky_25m --logdir runs/overnight_lines_20260707/ale_pure_rl_nosticky_logs --timesteps 25000000 --n-envs 6 --vec-env subproc --sticky 0.0 --eval-freq 500000 --checkpoint-freq 1000000
+python agents/ale/pure_rl_ale_agent.py evaluate --model runs/overnight_lines_20260707/ale_pure_rl_nosticky_25m/ppo_ale_pure.zip --episodes 25 --sticky 0.0
+python agents/ale/pure_rl_ale_agent.py evaluate --model runs/overnight_lines_20260707/ale_pure_rl_nosticky_25m/best/best_model.zip --episodes 25 --sticky 0.0
+
+# Track 2: tool-assisted ALE validation.
+# Do not spend the main overnight budget here; the current result is already
+# stable at 37 lines. This just confirms the baseline after the run.
+python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 10 --max-pieces 400 --seed 0 --out runs/overnight_lines_20260707/ale_track2_stable_eval.json
+
+Stop-Transcript
 ```
+
+## If Track 1 Runs Out Of RAM
+
+Use this safer Track 1 command instead. It is slower but avoids `SubprocVecEnv`.
+
+```powershell
+python agents/ale/pure_rl_ale_agent.py train --outdir runs/overnight_lines_20260707/ale_pure_rl_nosticky_20m_dummy --logdir runs/overnight_lines_20260707/ale_pure_rl_nosticky_dummy_logs --timesteps 20000000 --n-envs 4 --vec-env dummy --sticky 0.0 --eval-freq 500000 --checkpoint-freq 1000000
+python agents/ale/pure_rl_ale_agent.py evaluate --model runs/overnight_lines_20260707/ale_pure_rl_nosticky_20m_dummy/ppo_ale_pure.zip --episodes 25 --sticky 0.0
+```
+
+## Optional Track 2 Gamble
+
+Only run this if you specifically want to spend time trying to beat the 37-line
+ALE tool-assisted plateau. It is less likely to pay off than Tracks 3 and 4.
+
+```powershell
+python ale_tetris_agent.py train --outdir runs/overnight_lines_20260707/ale_track2_legacy_calibrated --planner legacy_calibrated --warm-start artifacts/ale_stable_high_score/best_weights.npy --generations 12 --population 16 --rollouts 2 --max-pieces 500 --top-k 32 --seed 7
+python ale_tetris_agent.py evaluate --planner legacy_calibrated --weights runs/overnight_lines_20260707/ale_track2_legacy_calibrated/best_weights.npy --episodes 10 --max-pieces 500 --top-k 32 --seed 0 --out runs/overnight_lines_20260707/ale_track2_legacy_calibrated/evaluation.json
+```
+
+## How To Pick Winners Tomorrow
+
+- Track 1 winner: highest `estimated_lines` printed by eval. If both final and
+  callback-best are 0 again, stop spending ALE pure-RL time without changing the
+  training approach.
+- Track 2 winner: any result above 37 lines is meaningful. Otherwise keep
+  `artifacts/ale_stable_high_score/best_weights.npy`.
+- Track 3 winner: highest `max_lines` and `mean_lines` in
+  `custom_pure_rl_20m/evaluation.json`.
+- Track 4 winner: highest `mean_lines` and `max_lines` in
+  `custom_tool_queue/evaluation_200.json`. If it beats the current artifact,
+  promote it after a longer eval.
+
+Recommended next code change if the overnight run still gives 0 lines on Track
+3: add a line-focused reward mode to the custom Gym environment. More PPO on the
+current score/drop reward may keep teaching fast survival without teaching line
+clears.

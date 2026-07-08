@@ -33,3 +33,14 @@ methods.
 
 Keep artifacts under the matching track directories documented in
 `docs/MODELS.md`.
+
+## Reporting Notes
+
+This project will need a later report covering progress, what was built, how it
+was built, and how each agent track performed. Future agents should preserve
+run evidence, evaluation JSON, terminal transcripts, and session notes for that
+report.
+
+- Report planning notes: `docs/REPORTING_NOTES.md`
+- Latest detailed session log: `docs/SESSION_2026-07-07.md`
+- Immediate next commands: `NEXT_STEPS.md`
