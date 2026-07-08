@@ -96,7 +96,7 @@ Copy-Item runs\plan_20260708\track4_queue_500\meta.json artifacts\custom_best\me
   effectively done — remaining headroom is ~1% score noise.
 - Track 3 pilot: **~3,900 fps steady** — 100k steps took 38 seconds, so the
   original 5M-step Night 2 would finish in ~22 minutes. Night 2 below has
-  been resized to 50M (~3.5-4 h). Learning signal is healthy: episode length
+  been resized to 100M (~7 h). Learning signal is healthy: episode length
   grew 65 → 198 steps and reward -6.77 → -4.46 within 100k steps (still 0
   lines, expected this early).
 - Bug found via the pilot's eval logs (5 identical eval episodes): the env
@@ -107,27 +107,35 @@ Copy-Item runs\plan_20260708\track4_queue_500\meta.json artifacts\custom_best\me
   trend remain valid; Night 2 trains on the fixed env with proper episode
   diversity.
 
-## Night 2 — Track 3 main run with the lines reward (~4 h)
+## Night 2 — Track 3 main run with the lines reward (~7 h)
 
-Resized from 5M to 50M steps using the measured ~3,900 fps (50M / 3900 ≈
-3.6 h). If you can leave it longer, 100M ≈ 7.2 h also works — just change
-`--timesteps`; checkpoints every 5M mean an early Ctrl+C still leaves usable
-models under `checkpoints/`.
+Sized to 100M steps using the measured ~3,900 fps (100M / 3900 ≈ 7.1 h).
+Checkpoints every 5M mean an early Ctrl+C still leaves usable models under
+the logdir's `checkpoints/` directory, so there is no harm in stopping it in
+the morning if it is still running.
+
+**Logging is now handled by the trainer itself** (added 2026-07-08 evening):
+the training tables are written to `<logdir>/log.txt` and machine-readable
+`<logdir>/progress.csv` as the run goes, so nothing is lost to PowerShell's
+transcript gaps or the console screen buffer (which holds only a few
+thousand lines — far less than a 7-hour run prints). The Start-Transcript
+wrapper below is kept only as a record of which commands ran and when; the
+real evidence is `log.txt` + `progress.csv` + the eval/tensorboard files.
 
 ```powershell
 Start-Transcript -Path runs\plan_20260708\night2_transcript.txt -Append
 
-# 2.1  Track 3: main PPO run on the lines reward, 50M steps (~3.5-4 h).
-python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lines_50m --logdir runs/plan_20260708/track3_lines_50m_logs --timesteps 50000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --eval-freq 1000000 --checkpoint-freq 5000000
+# 2.1  Track 3: main PPO run on the lines reward, 100M steps (~7 h).
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lines_100m --logdir runs/plan_20260708/track3_lines_100m_logs --timesteps 100000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --eval-freq 1000000 --checkpoint-freq 5000000
 
 # 2.2  Evaluate the final model (about 10-20 minutes for 25 episodes).
-python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_50m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lines_50m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_50m/evaluation.json
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_100m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lines_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_100m/evaluation.json
 
 # 2.3  Also evaluate the eval-callback best model. Note: this pairs the
 #      callback-best policy with the final VecNormalize stats, which is the
 #      standard approximation; matching per-checkpoint stats live under the
 #      checkpoints directory if you want an exact pairing.
-python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_50m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lines_50m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_50m/evaluation_best.json
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_100m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lines_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_100m/evaluation_best.json
 
 Stop-Transcript
 ```
@@ -150,7 +158,9 @@ Stop-Transcript
 Only if you want a "non-sticky also failed / succeeded" data point for the
 report. Expectation is 0 lines; that is a valid negative result. About 6-12 h
 for 3M frames on this machine — check fps after the first 10 minutes and abort
-if the projected finish is unacceptable.
+if the projected finish is unacceptable. The Track 1 trainer writes
+`<logdir>/log.txt` and `progress.csv` too (same fix as Track 3), so the
+console log is not load-bearing here either.
 
 ```powershell
 Start-Transcript -Path runs\plan_20260708\night3_transcript.txt -Append
@@ -180,7 +190,9 @@ Stop-Transcript
   (the transcript file missed Python stdout).
 - `runs/plan_20260708/track4_eval500_current_10ep.json` — old Track 4
   weights at 10 episodes, the apples-to-apples baseline for the promotion.
-- `runs/plan_20260708/track3_lines_50m/evaluation*.json` — first Track 3
+- `runs/plan_20260708/track3_lines_100m_logs/log.txt` and `progress.csv` —
+  full Night 2 training log written by the trainer itself.
+- `runs/plan_20260708/track3_lines_100m/evaluation*.json` — first Track 3
   result under the lines reward.
 - `runs/plan_20260708/track1_nosticky_3m/evaluation*.json` — Track 1
   non-sticky outcome (optional night).

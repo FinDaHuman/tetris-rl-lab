@@ -147,8 +147,13 @@ def train(args: argparse.Namespace) -> None:
         ent_coef=args.ent_coef,
         vf_coef=args.vf_coef,
         device=args.device,
-        tensorboard_log=str(logdir / "tensorboard"),
     )
+    # Console output alone is lossy on long runs (PowerShell transcripts miss
+    # native stdout and the console buffer overflows), so mirror the training
+    # tables to <logdir>/log.txt and progress.csv at the source.
+    from stable_baselines3.common.logger import configure as configure_logger
+
+    model.set_logger(configure_logger(str(logdir), ["stdout", "log", "csv", "tensorboard"]))
     callback = CallbackList(callbacks) if callbacks else None
     model.learn(total_timesteps=args.timesteps, callback=callback)
     target = outdir / f"{MODEL_NAME}.zip"
