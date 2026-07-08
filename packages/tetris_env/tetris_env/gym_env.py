@@ -60,8 +60,15 @@ class TetrisScoreEnv(gym.Env):
         )
 
     def reset(self, *, seed: int | None = None, options=None):
+        # The constructor seed initializes the episode-seed stream exactly once;
+        # after that, unseeded resets draw a fresh game seed from np_random so
+        # every episode gets a new piece sequence (reproducible per env seed).
+        if seed is None and self._seed is not None:
+            seed = self._seed
+            self._seed = None
         super().reset(seed=seed)
-        self.game = TetrisGame(seed=self._seed if seed is None else seed)
+        game_seed = int(self.np_random.integers(0, 2**31 - 1))
+        self.game = TetrisGame(seed=game_seed)
         return self._obs(), self._info()
 
     def step(self, action):

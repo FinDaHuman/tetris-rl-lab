@@ -78,23 +78,56 @@ Copy-Item runs\plan_20260708\track4_queue_500\meta.json artifacts\custom_best\me
   timesteps = fps x 3600 x hours you can spare. Example: 250 fps x 8 h ≈ 7M.
   Use 5,000,000 if fps ≥ ~180, otherwise cut to 3,000,000.
 
-## Night 2 — Track 3 main run with the lines reward (full overnight)
+---
+
+## Night 1 outcome (recorded 2026-07-08, evening)
+
+- Tests: 14 passed. Full console log preserved as
+  `runs/plan_20260708/night1_console_full.txt` (the PowerShell transcript
+  missed Python stdout, so the log was saved separately — do the same for
+  future nights or just keep the console-window save).
+- Track 4: **promoted.** New weights vs old at 10 episodes, seeds 0-9,
+  500 pieces: mean score 215,530 vs 213,780 (better on 6/10 seeds), mean
+  lines 198.1 vs 198.3 (a tie — both pressed against the 200-line ceiling).
+  Holdout fitness rose 412,150 → 420,117 over 12 generations. Since lines
+  are saturated and Track 4's objective is score, promotion was decided on
+  mean score; old-weights 10-episode eval is
+  `runs/plan_20260708/track4_eval500_current_10ep.json`. Track 4 is now
+  effectively done — remaining headroom is ~1% score noise.
+- Track 3 pilot: **~3,900 fps steady** — 100k steps took 38 seconds, so the
+  original 5M-step Night 2 would finish in ~22 minutes. Night 2 below has
+  been resized to 50M (~3.5-4 h). Learning signal is healthy: episode length
+  grew 65 → 198 steps and reward -6.77 → -4.46 within 100k steps (still 0
+  lines, expected this early).
+- Bug found via the pilot's eval logs (5 identical eval episodes): the env
+  replayed the *same piece sequence every episode*. Fixed on 2026-07-08 in
+  `packages/tetris_env/tetris_env/gym_env.py` — each reset now draws a fresh
+  game seed from the env's RNG stream (reproducible per env seed). Three
+  regression tests added; suite is now 17 passed. The pilot's timing and
+  trend remain valid; Night 2 trains on the fixed env with proper episode
+  diversity.
+
+## Night 2 — Track 3 main run with the lines reward (~4 h)
+
+Resized from 5M to 50M steps using the measured ~3,900 fps (50M / 3900 ≈
+3.6 h). If you can leave it longer, 100M ≈ 7.2 h also works — just change
+`--timesteps`; checkpoints every 5M mean an early Ctrl+C still leaves usable
+models under `checkpoints/`.
 
 ```powershell
 Start-Transcript -Path runs\plan_20260708\night2_transcript.txt -Append
 
-# 2.1  Track 3: main PPO run on the lines reward (size from the pilot; the
-#      command below assumes 5M steps).
-python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lines_5m --logdir runs/plan_20260708/track3_lines_5m_logs --timesteps 5000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --eval-freq 250000 --checkpoint-freq 1000000
+# 2.1  Track 3: main PPO run on the lines reward, 50M steps (~3.5-4 h).
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lines_50m --logdir runs/plan_20260708/track3_lines_50m_logs --timesteps 50000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --eval-freq 1000000 --checkpoint-freq 5000000
 
 # 2.2  Evaluate the final model (about 10-20 minutes for 25 episodes).
-python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_5m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lines_5m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_5m/evaluation.json
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_50m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lines_50m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_50m/evaluation.json
 
 # 2.3  Also evaluate the eval-callback best model. Note: this pairs the
 #      callback-best policy with the final VecNormalize stats, which is the
 #      standard approximation; matching per-checkpoint stats live under the
 #      checkpoints directory if you want an exact pairing.
-python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_5m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lines_5m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_5m/evaluation_best.json
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lines_50m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lines_50m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lines_50m/evaluation_best.json
 
 Stop-Transcript
 ```
@@ -107,7 +140,10 @@ Stop-Transcript
   JSON, `meta.json`).
 - If still 0 lines: do not add more timesteps. The next levers, in order, are
   a higher `--line-reward` (e.g. 50), longer training `--max-pieces`, and an
-  entropy schedule — one change at a time.
+  entropy schedule — one change at a time. (Also worth knowing: the pilot
+  showed `clip_fraction` ~0.4 and `approx_kl` ~0.05, which is on the hot
+  side for PPO — a lower learning rate, e.g. 1e-4, is another single-change
+  lever if training looks unstable at 50M.)
 
 ## Night 3 (optional) — Track 1 final documented attempt
 
@@ -140,7 +176,11 @@ Stop-Transcript
   before/after at 500 pieces.
 - `runs/plan_20260708/track4_queue_500/history.json` — CEM train vs holdout
   fitness per generation (new format).
-- `runs/plan_20260708/track3_lines_5m/evaluation*.json` — first Track 3
+- `runs/plan_20260708/night1_console_full.txt` — full Night 1 console log
+  (the transcript file missed Python stdout).
+- `runs/plan_20260708/track4_eval500_current_10ep.json` — old Track 4
+  weights at 10 episodes, the apples-to-apples baseline for the promotion.
+- `runs/plan_20260708/track3_lines_50m/evaluation*.json` — first Track 3
   result under the lines reward.
 - `runs/plan_20260708/track1_nosticky_3m/evaluation*.json` — Track 1
   non-sticky outcome (optional night).

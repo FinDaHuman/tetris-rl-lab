@@ -1,27 +1,31 @@
 # Next Steps
 
-Status on 2026-07-08:
+Status on 2026-07-08 (evening — Night 1 complete):
 
-- Code improvements landed and tested (14 tests pass):
-  - Track 4 planning ~5x faster (vectorized features + numpy placement
-    enumeration + symmetric-rotation dedupe).
-  - Track 4 CEM now promotes best weights on a fixed held-out seed set.
-  - Track 3 gained `--reward-mode lines` (now the train default) to fix the
-    drop-point reward hack that kept pure RL at 0 lines.
-  - Track 1 `evaluate --out` JSON crash fixed.
-- No new training has been run since these changes.
+- Night 1 ran and its gate decisions are made (details in
+  [TRAINING_PLAN.md](TRAINING_PLAN.md) "Night 1 outcome"):
+  - Track 4 **promoted** to `artifacts/custom_best`: mean score 215,530 vs
+    213,780 at 500 pieces (10 episodes, seeds 0-9); lines tied at ~198 of a
+    200 ceiling. Track 4 is effectively done.
+  - Track 3 pilot measured ~3,900 fps, so Night 2 was resized from 5M to
+    **50M steps (~4 h)**.
+- Episode-seeding bug found and fixed the same evening: the custom gym env
+  replayed one fixed piece sequence per env every episode. Fixed in
+  `gym_env.py` (fresh game seed per reset, reproducible stream); 3 regression
+  tests added — suite is now 17 passed. Run Night 2 only with this fix in
+  place.
 
-**The complete, ordered training commands (with logging) are in
-[TRAINING_PLAN.md](TRAINING_PLAN.md).** Run Night 1 first (Track 4 at 500
-pieces + Track 3 timing pilot), then Night 2 (Track 3 lines-reward main run),
-then optionally Night 3 (Track 1 final attempt + Track 2 confirm).
+**Next action: run Night 2 in [TRAINING_PLAN.md](TRAINING_PLAN.md)** (Track 3
+lines-reward 50M run + evals), then optionally Night 3 (Track 1 final attempt
++ Track 2 confirm).
 
-Promotion rules:
+Remaining promotion rules:
 
-- Track 4: promote to `artifacts/custom_best` only if the new 500-piece eval
-  beats `runs/plan_20260708/track4_eval500_current.json` on mean lines.
 - Track 3: promote to `artifacts/custom_pure_rl` if mean lines > 0.
 - Keep all experiment outputs under `runs/` until promotion.
+- Tip: PowerShell transcripts miss Python stdout — also save the console
+  window contents (as done for Night 1:
+  `runs/plan_20260708/night1_console_full.txt`).
 
 Older 200-piece Track 4 context (superseded, kept for reference): the
 2026-07-07 queue run reached mean 78.3 lines at the 200-piece cap, which is

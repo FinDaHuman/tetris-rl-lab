@@ -45,3 +45,34 @@ def test_pure_rl_custom_observation_is_flat_and_includes_preview() -> None:
     obs, _ = env.reset(seed=0)
     assert obs.shape == (20 * 10 * 2 + 3 + len(PIECES) * 2,)
     assert obs.dtype.name == "float32"
+
+
+def _spawn_pair(env: TetrisScoreEnv) -> tuple[str, str]:
+    return env.game.current.name, env.game.next_piece
+
+
+def test_unseeded_resets_give_new_piece_sequences() -> None:
+    env = TetrisScoreEnv(seed=0)
+    pairs = []
+    for _ in range(10):
+        env.reset()
+        pairs.append(_spawn_pair(env))
+    assert len(set(pairs)) > 1
+
+
+def test_env_seed_makes_episode_stream_reproducible() -> None:
+    env_a = TetrisScoreEnv(seed=123)
+    env_b = TetrisScoreEnv(seed=123)
+    for _ in range(5):
+        env_a.reset()
+        env_b.reset()
+        assert _spawn_pair(env_a) == _spawn_pair(env_b)
+
+
+def test_explicit_reset_seed_is_deterministic() -> None:
+    env = TetrisScoreEnv()
+    env.reset(seed=42)
+    first = _spawn_pair(env)
+    env.reset()  # advance the stream
+    env.reset(seed=42)
+    assert _spawn_pair(env) == first

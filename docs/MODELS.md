@@ -113,6 +113,9 @@ game rules standard. This is the fast planning/optimization track.
 - Viewer: `agents/custom/render_custom_episode.py`
 - Environment and engine: `packages/tetris_env`
 - Default artifact: `artifacts/custom_best/best_weights.npy`
+- Current verified result (2026-07-08, 500-piece cap, 10 episodes, seeds
+  0-9): mean score 215,530, mean lines 198.1 of a 200-line ceiling —
+  `artifacts/custom_best/evaluation_500.json`
 - Current method: weighted placement features optimized by CEM-style training
   with queue-aware beam lookahead
 - Best-weights promotion during training uses a fixed held-out seed set

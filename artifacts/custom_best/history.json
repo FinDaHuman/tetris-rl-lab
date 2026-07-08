@@ -1,14 +1,86 @@
 [
   {
     "generation": 1,
-    "best_fit": 20605.0,
-    "gen_best": 20605.0,
-    "mean_fit": 18505.0
+    "gen_best_train": 415216.6666666667,
+    "mean_fit_train": 348455.9847222222,
+    "gen_best_holdout": 413583.3333333333,
+    "best_holdout": 413583.3333333333
   },
   {
     "generation": 2,
-    "best_fit": 20705.0,
-    "gen_best": 20705.0,
-    "mean_fit": 19730.0
+    "gen_best_train": 416716.6666666667,
+    "mean_fit_train": 359775.9319444445,
+    "gen_best_holdout": 297174.5333333333,
+    "best_holdout": 413583.3333333333
+  },
+  {
+    "generation": 3,
+    "gen_best_train": 415650.0,
+    "mean_fit_train": 367208.0597222222,
+    "gen_best_holdout": 408583.3333333333,
+    "best_holdout": 413583.3333333333
+  },
+  {
+    "generation": 4,
+    "gen_best_train": 416450.0,
+    "mean_fit_train": 376710.2055555556,
+    "gen_best_holdout": 411383.3333333333,
+    "best_holdout": 413583.3333333333
+  },
+  {
+    "generation": 5,
+    "gen_best_train": 418483.3333333333,
+    "mean_fit_train": 412534.7222222222,
+    "gen_best_holdout": 412316.6666666667,
+    "best_holdout": 413583.3333333333
+  },
+  {
+    "generation": 6,
+    "gen_best_train": 418750.0,
+    "mean_fit_train": 403933.8361111111,
+    "gen_best_holdout": 412050.0,
+    "best_holdout": 413583.3333333333
+  },
+  {
+    "generation": 7,
+    "gen_best_train": 417516.6666666667,
+    "mean_fit_train": 412184.72222222225,
+    "gen_best_holdout": 416783.3333333333,
+    "best_holdout": 416783.3333333333
+  },
+  {
+    "generation": 8,
+    "gen_best_train": 418916.6666666667,
+    "mean_fit_train": 412936.1111111112,
+    "gen_best_holdout": 420116.6666666667,
+    "best_holdout": 420116.6666666667
+  },
+  {
+    "generation": 9,
+    "gen_best_train": 419616.6666666667,
+    "mean_fit_train": 413840.2777777778,
+    "gen_best_holdout": 419050.0,
+    "best_holdout": 420116.6666666667
+  },
+  {
+    "generation": 10,
+    "gen_best_train": 418583.3333333333,
+    "mean_fit_train": 414994.44444444444,
+    "gen_best_holdout": 414283.3333333333,
+    "best_holdout": 420116.6666666667
+  },
+  {
+    "generation": 11,
+    "gen_best_train": 419550.0,
+    "mean_fit_train": 413234.72222222225,
+    "gen_best_holdout": 412583.3333333333,
+    "best_holdout": 420116.6666666667
+  },
+  {
+    "generation": 12,
+    "gen_best_train": 421550.0,
+    "mean_fit_train": 414904.1666666667,
+    "gen_best_holdout": 414183.3333333333,
+    "best_holdout": 420116.6666666667
   }
 ]

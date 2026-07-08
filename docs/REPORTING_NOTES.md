@@ -95,4 +95,13 @@ Keep these artifacts for report writing:
   runs default to the `lines` reward mode. The `reward` field in evaluation
   JSON is mode-dependent, but `score`/`lines`/`pieces` remain comparable.
 - Track 4 at 200 pieces is nearly saturated (ceiling 80 lines), so progress
-  moved to the 500-piece cap (ceiling 200 lines).
+  moved to the 500-piece cap (ceiling 200 lines). As of the Night 1 run
+  (2026-07-08), Track 4 is ~198 mean lines at 500 pieces — saturated there
+  too — and the promoted result was decided on mean score (215,530 vs
+  213,780), not lines.
+- Fixed on 2026-07-08 (evening): `TetrisScoreEnv` replayed the same piece
+  sequence every episode for a given env seed. Training/eval-callback data
+  from before the fix (including the Night 1 Track 3 pilot) used only
+  `n_envs` distinct piece sequences; standalone `evaluate` results were
+  always per-episode seeded and stay valid. Piece sequences for a given seed
+  changed with the fix, so do not compare same-seed episodes across it.

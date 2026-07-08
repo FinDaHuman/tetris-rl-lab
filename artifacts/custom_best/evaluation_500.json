@@ -1,0 +1,76 @@
+{
+  "weights": "runs/plan_20260708/track4_queue_500/best_weights.npy",
+  "episodes": 10,
+  "seed_start": 0,
+  "max_pieces": 500,
+  "lookahead_weight": 0.35,
+  "lookahead_candidates": 4,
+  "lookahead_depth": 2,
+  "future_source": "queue",
+  "mean_score": 215530.0,
+  "max_score": 219000.0,
+  "mean_lines": 198.1,
+  "max_lines": 199,
+  "rows": [
+    {
+      "seed": 0,
+      "score": 206800,
+      "lines": 195,
+      "pieces": 500
+    },
+    {
+      "seed": 1,
+      "score": 219000,
+      "lines": 199,
+      "pieces": 500
+    },
+    {
+      "seed": 2,
+      "score": 214500,
+      "lines": 198,
+      "pieces": 500
+    },
+    {
+      "seed": 3,
+      "score": 217100,
+      "lines": 197,
+      "pieces": 500
+    },
+    {
+      "seed": 4,
+      "score": 215900,
+      "lines": 199,
+      "pieces": 500
+    },
+    {
+      "seed": 5,
+      "score": 217000,
+      "lines": 199,
+      "pieces": 500
+    },
+    {
+      "seed": 6,
+      "score": 216800,
+      "lines": 199,
+      "pieces": 500
+    },
+    {
+      "seed": 7,
+      "score": 216900,
+      "lines": 199,
+      "pieces": 500
+    },
+    {
+      "seed": 8,
+      "score": 216900,
+      "lines": 198,
+      "pieces": 500
+    },
+    {
+      "seed": 9,
+      "score": 214400,
+      "lines": 198,
+      "pieces": 500
+    }
+  ]
+}
