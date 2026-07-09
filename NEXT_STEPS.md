@@ -1,5 +1,21 @@
 # Next Steps
 
+Status on 2026-07-09 (night — Night 2 complete, gate passed, model promoted):
+
+- Night 2 attempt 2 ran clean: 100M steps in ~7.8 h. **First pure-RL line
+  clears in the project** — final model `mean_lines` 1.04 (max 3, 21/25
+  episodes ≥1 line) vs callback-best 0.92. Final model **promoted to
+  `artifacts/custom_pure_rl/`** (old 0-line score-mode artifact replaced;
+  previous version remains in git history).
+- Diagnostics: learning plateaued at ~36M steps (eval reward oscillated
+  0–7 for the last 64M), and PPO ran hot the whole run (`approx_kl`
+  ~0.15–0.18, `clip_fraction` ~0.41–0.44). Behavior bottleneck is survival:
+  episodes top out after ~28 pieces of the 500 cap.
+- **Next action: run Night 3 in [TRAINING_PLAN.md](TRAINING_PLAN.md)** —
+  same command at `--learning-rate 0.0001` (the one evidence-backed change).
+  Gate: promote only if 25-episode mean_lines beats 1.04.
+- The optional Track 1 final attempt is now Night 4 in the plan.
+
 Status on 2026-07-09 (afternoon — Night 2 attempt 1 hung, fix pushed):
 
 - Night 2 attempt 1 froze at 4.0M/100M steps: the eval callback's
@@ -35,7 +51,9 @@ lines-reward 100M run + evals), then optionally Night 3 (Track 1 final attempt
 
 Remaining promotion rules:
 
-- Track 3: promote to `artifacts/custom_pure_rl` if mean lines > 0.
+- Track 3: the mean-lines > 0 gate was met and promoted on 2026-07-09;
+  future runs promote to `artifacts/custom_pure_rl` only if their
+  25-episode `mean_lines` beats the current 1.04.
 - Keep all experiment outputs under `runs/` until promotion.
 - Logging: both PPO trainers now write `<logdir>/log.txt` and `progress.csv`
   themselves, so console/transcript capture is no longer load-bearing.

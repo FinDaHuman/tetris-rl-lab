@@ -64,7 +64,11 @@ Keep these artifacts for report writing:
   learned weights for the strong Track 4 run.
 - `artifacts/ale_stable_high_score/evaluation.json`: stable Track 2 ALE
   baseline.
-- `artifacts/custom_pure_rl/evaluation.json`: current Track 3 baseline.
+- `artifacts/custom_pure_rl/evaluation.json`: current Track 3 baseline —
+  the Night 2 (2026-07-09) 100M-step lines-reward model, mean_lines 1.04
+  over 25 episodes: the project's first pure-RL line clears. Full training
+  evidence: `runs/plan_20260708/track3_lines_100m*` (log.txt, progress.csv,
+  eval history, checkpoints every 5M).
 - `artifacts/custom_best/custom_episode.json`: older Track 4 baseline/render
   sidecar.
 
@@ -114,3 +118,11 @@ Keep these artifacts for report writing:
   degenerate hovering play only; normal play is unaffected. Attempt 1's
   partial training data (≤4M steps) predates the fix and should not be
   merged with the restarted run's curves.
+- Track 3 milestone (2026-07-09, Night 2): first pure-RL line clears —
+  mean_lines 1.04 / max 3 over 25 deterministic episodes at 100M steps.
+  The promoted `artifacts/custom_pure_rl/` model replaced the 2026-07-03
+  score-mode model (0 lines); do not mix their numbers — reward modes and
+  env fixes differ. For the report's analysis section: the run plateaued at
+  ~36M steps with PPO update stats hot the whole way (approx_kl ~0.15–0.18,
+  clip_fraction ~0.41–0.44), and the trained agent tops out after ~28
+  pieces — survival, not line-finding, is the current limiter.

@@ -179,7 +179,65 @@ Stop-Transcript
   and `approx_kl` ~0.15 by 4M steps while reward was still improving, so
   watch these columns in `progress.csv`.)
 
-## Night 3 (optional) — Track 1 final documented attempt
+**Night 2 outcome (2026-07-09, attempt 2):** ran clean start to finish,
+100M steps in ~7.8 h (~1:24 PM → 9:12 PM). **Gate passed — first pure-RL
+line clears in the project.** The final model scored `mean_lines` **1.04**
+(max 3, 21/25 episodes with ≥1 line, mean score 361) vs the callback-best
+model's 0.92, so the **final model was promoted** to
+`artifacts/custom_pure_rl/` (replacing the 0-line score-mode model from
+2026-07-03). Two findings that shape the next run:
+
+- **Learning plateaued at ~36M steps.** Eval mean reward climbed −4 → +7 by
+  36M, then oscillated between ~0 and ~7 for the remaining 64M with no
+  trend. More timesteps at these hyperparameters buy nothing.
+- **PPO ran hot the whole run**: `approx_kl` ~0.15–0.18 and `clip_fraction`
+  ~0.41–0.44 sustained for all 100M steps (healthy is roughly ≤0.03 / ≤0.2).
+  Each update overshoots, which is the standard signature behind exactly
+  this kind of plateau-plus-oscillation. This makes learning rate 1e-4 the
+  evidence-backed single change for Night 3.
+- Behavior note: episodes end by top-out after ~28 pieces (of a 500 cap) —
+  the agent clears ~1 line and then dies. Survival, not line-finding, is now
+  the bottleneck.
+
+## Night 3 — Track 3 second run at lr 1e-4 (~7 h)
+
+One change from Night 2's command, per the one-change-at-a-time rule:
+`--learning-rate 0.0001` (was 3e-4). Everything else identical, same seed,
+fresh run (the trainer has no resume flag, and a fresh run keeps the two
+curves directly comparable).
+
+```powershell
+Start-Transcript -Path runs\plan_20260708\night3_transcript.txt -Append
+
+# 3.1  Track 3: 100M steps at lr 1e-4 (~7-8 h).
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lr1e4_100m --logdir runs/plan_20260708/track3_lr1e4_100m_logs --timesteps 100000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --learning-rate 0.0001 --eval-freq 1000000 --checkpoint-freq 5000000
+
+# 3.2  Evaluate the final model.
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr1e4_100m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lr1e4_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr1e4_100m/evaluation.json
+
+# 3.3  Evaluate the eval-callback best model.
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr1e4_100m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lr1e4_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr1e4_100m/evaluation_best.json
+
+Stop-Transcript
+```
+
+Watch `approx_kl` / `clip_fraction` in `progress.csv`: at lr 1e-4 they
+should sit well below Night 2's ~0.15 / ~0.42. If eval reward is still
+clearly climbing at 100M (unlike Night 2, which plateaued at 36M), a
+continuation run is worth it.
+
+**Decision gate after Night 3:**
+
+- Promote (final or callback-best, whichever is better) to
+  `artifacts/custom_pure_rl/` only if its 25-episode `mean_lines` beats the
+  current 1.04.
+- If lr 1e-4 is *worse* (e.g. still climbing but far below 1.04 at 100M —
+  too slow), the remaining levers, one at a time, are: a smaller
+  intermediate lr (2e-4), higher `--line-reward` (e.g. 50), or an entropy
+  schedule. Given the survival bottleneck, a higher `--top-out-penalty` is
+  also now a candidate lever.
+
+## Night 4 (optional) — Track 1 final documented attempt
 
 Only if you want a "non-sticky also failed / succeeded" data point for the
 report. Expectation is 0 lines; that is a valid negative result. About 6-12 h
@@ -189,16 +247,16 @@ if the projected finish is unacceptable. The Track 1 trainer writes
 console log is not load-bearing here either.
 
 ```powershell
-Start-Transcript -Path runs\plan_20260708\night3_transcript.txt -Append
+Start-Transcript -Path runs\plan_20260708\night4_transcript.txt -Append
 
-# 3.1  Track 1: 3M non-sticky PPO (dummy vec env: safest for RAM).
+# 4.1  Track 1: 3M non-sticky PPO (dummy vec env: safest for RAM).
 python agents/ale/pure_rl_ale_agent.py train --outdir runs/plan_20260708/track1_nosticky_3m --logdir runs/plan_20260708/track1_nosticky_logs --timesteps 3000000 --n-envs 4 --vec-env dummy --sticky 0.0 --eval-freq 250000 --checkpoint-freq 1000000
 
-# 3.2  Evaluate final and callback-best models (JSON --out works now).
+# 4.2  Evaluate final and callback-best models (JSON --out works now).
 python agents/ale/pure_rl_ale_agent.py evaluate --model runs/plan_20260708/track1_nosticky_3m/ppo_ale_pure.zip --episodes 25 --sticky 0.0 --out runs/plan_20260708/track1_nosticky_3m/evaluation.json
 python agents/ale/pure_rl_ale_agent.py evaluate --model runs/plan_20260708/track1_nosticky_3m/best/best_model.zip --episodes 25 --sticky 0.0 --out runs/plan_20260708/track1_nosticky_3m/evaluation_best.json
 
-# 3.3  Track 2: cheap baseline confirmation (unchanged code path, ~10 min).
+# 4.3  Track 2: cheap baseline confirmation (unchanged code path, ~10 min).
 python ale_tetris_agent.py evaluate --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy --episodes 3 --max-pieces 400 --seed 0 --out runs/plan_20260708/track2_confirm.json
 
 Stop-Transcript
@@ -219,7 +277,9 @@ Stop-Transcript
 - `runs/plan_20260708/track3_lines_100m_logs/log.txt` and `progress.csv` —
   full Night 2 training log written by the trainer itself.
 - `runs/plan_20260708/track3_lines_100m/evaluation*.json` — first Track 3
-  result under the lines reward.
+  result under the lines reward (mean_lines 1.04; promoted 2026-07-09).
+- `runs/plan_20260708/track3_lr1e4_100m/evaluation*.json` and its
+  `_logs/progress.csv` — the lr 1e-4 comparison run (Night 3).
 - `runs/plan_20260708/track1_nosticky_3m/evaluation*.json` — Track 1
   non-sticky outcome (optional night).
 

@@ -95,6 +95,11 @@ only through the Gymnasium step API.
     checkpoints).
 - Disallowed assistance: placement enumeration, direct board edits, lookahead,
   search, access to future pieces beyond one next piece
+- Current promoted model (2026-07-09, Night 2): 100M steps PPO on the lines
+  reward — mean 1.04 lines over 25 deterministic 500-piece episodes (max 3;
+  21/25 episodes clear at least one line). First pure-RL line clears in the
+  project. Evaluation manifests: `artifacts/custom_pure_rl/evaluation.json`
+  (final model) and `evaluation_best.json` (eval-callback best, 0.92 lines).
 
 Commands:
 

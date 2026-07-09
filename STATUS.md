@@ -30,9 +30,11 @@ Track 3: pure RL on custom env:
 
 - CLI: `agents/custom/pure_rl_custom_agent.py`
 - Default output: `artifacts/custom_pure_rl/ppo_custom_pure.zip`
-- Current starter checkpoint: 200k PPO timesteps with VecNormalize
-- Current starter eval: mean score 350.6 over five 500-piece-cap episodes,
-  seeded 1000 through 1004; no line clears yet
+- Current checkpoint: 100M PPO timesteps on the lines reward with
+  VecNormalize (Night 2, 2026-07-09)
+- Current eval: mean 1.04 lines (max 3, 21/25 episodes with a clear),
+  mean score 361, over 25 deterministic 500-piece-cap episodes seeded
+  1000-1024 — the project's first pure-RL line clears
 - Policy input: locked board, active falling-piece mask, current piece state,
   current piece identity, and one next piece
 - Uses only the Gymnasium step API

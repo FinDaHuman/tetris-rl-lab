@@ -1,49 +1,190 @@
 {
-  "model": "artifacts\\custom_pure_rl\\ppo_custom_pure.zip",
-  "vec_normalize": "artifacts\\custom_pure_rl\\vec_normalize.pkl",
-  "episodes": 5,
+  "model": "runs\\plan_20260708\\track3_lines_100m\\ppo_custom_pure.zip",
+  "vec_normalize": "runs\\plan_20260708\\track3_lines_100m\\vec_normalize.pkl",
+  "episodes": 25,
   "seed_start": 1000,
   "max_pieces": 500,
+  "reward_mode": "lines",
   "deterministic": true,
-  "mean_score": 350.6,
-  "max_score": 415.0,
-  "mean_lines": 0.0,
-  "max_lines": 0,
+  "mean_score": 361.28,
+  "max_score": 617.0,
+  "mean_lines": 1.04,
+  "max_lines": 3,
   "rows": [
     {
       "seed": 1000,
-      "reward": 359.0,
-      "score": 359,
-      "lines": 0,
-      "pieces": 20
+      "reward": 8.25,
+      "score": 350,
+      "lines": 1,
+      "pieces": 33
     },
     {
       "seed": 1001,
-      "reward": 371.0,
-      "score": 371,
-      "lines": 0,
-      "pieces": 19
+      "reward": 6.25,
+      "score": 326,
+      "lines": 1,
+      "pieces": 25
     },
     {
       "seed": 1002,
-      "reward": 238.0,
-      "score": 238,
-      "lines": 0,
-      "pieces": 14
+      "reward": 17.75,
+      "score": 447,
+      "lines": 2,
+      "pieces": 31
     },
     {
       "seed": 1003,
-      "reward": -585.0,
-      "score": 415,
-      "lines": 0,
-      "pieces": 20
+      "reward": 6.5,
+      "score": 319,
+      "lines": 1,
+      "pieces": 26
     },
     {
       "seed": 1004,
-      "reward": 370.0,
-      "score": 370,
+      "reward": 7.25,
+      "score": 345,
+      "lines": 1,
+      "pieces": 29
+    },
+    {
+      "seed": 1005,
+      "reward": -3.25,
+      "score": 167,
       "lines": 0,
-      "pieces": 18
+      "pieces": 27
+    },
+    {
+      "seed": 1006,
+      "reward": 6.75,
+      "score": 306,
+      "lines": 1,
+      "pieces": 27
+    },
+    {
+      "seed": 1007,
+      "reward": 7.25,
+      "score": 356,
+      "lines": 1,
+      "pieces": 29
+    },
+    {
+      "seed": 1008,
+      "reward": 17.75,
+      "score": 489,
+      "lines": 2,
+      "pieces": 31
+    },
+    {
+      "seed": 1009,
+      "reward": 7.5,
+      "score": 357,
+      "lines": 1,
+      "pieces": 30
+    },
+    {
+      "seed": 1010,
+      "reward": 8.0,
+      "score": 371,
+      "lines": 1,
+      "pieces": 32
+    },
+    {
+      "seed": 1011,
+      "reward": 6.25,
+      "score": 392,
+      "lines": 1,
+      "pieces": 25
+    },
+    {
+      "seed": 1012,
+      "reward": 7.75,
+      "score": 370,
+      "lines": 1,
+      "pieces": 31
+    },
+    {
+      "seed": 1013,
+      "reward": 29.0,
+      "score": 617,
+      "lines": 3,
+      "pieces": 36
+    },
+    {
+      "seed": 1014,
+      "reward": 7.25,
+      "score": 425,
+      "lines": 1,
+      "pieces": 29
+    },
+    {
+      "seed": 1015,
+      "reward": 6.75,
+      "score": 379,
+      "lines": 1,
+      "pieces": 27
+    },
+    {
+      "seed": 1016,
+      "reward": 8.0,
+      "score": 406,
+      "lines": 1,
+      "pieces": 32
+    },
+    {
+      "seed": 1017,
+      "reward": 6.5,
+      "score": 407,
+      "lines": 1,
+      "pieces": 26
+    },
+    {
+      "seed": 1018,
+      "reward": 7.0,
+      "score": 323,
+      "lines": 1,
+      "pieces": 28
+    },
+    {
+      "seed": 1019,
+      "reward": -4.5,
+      "score": 217,
+      "lines": 0,
+      "pieces": 22
+    },
+    {
+      "seed": 1020,
+      "reward": 18.0,
+      "score": 473,
+      "lines": 2,
+      "pieces": 32
+    },
+    {
+      "seed": 1021,
+      "reward": 7.5,
+      "score": 427,
+      "lines": 1,
+      "pieces": 30
+    },
+    {
+      "seed": 1022,
+      "reward": -3.75,
+      "score": 191,
+      "lines": 0,
+      "pieces": 25
+    },
+    {
+      "seed": 1023,
+      "reward": -4.0,
+      "score": 206,
+      "lines": 0,
+      "pieces": 24
+    },
+    {
+      "seed": 1024,
+      "reward": 7.0,
+      "score": 366,
+      "lines": 1,
+      "pieces": 28
     }
   ]
 }
