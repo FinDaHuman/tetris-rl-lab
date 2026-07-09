@@ -11,10 +11,17 @@ Status on 2026-07-09 (night — Night 2 complete, gate passed, model promoted):
   0–7 for the last 64M), and PPO ran hot the whole run (`approx_kl`
   ~0.15–0.18, `clip_fraction` ~0.41–0.44). Behavior bottleneck is survival:
   episodes top out after ~28 pieces of the 500 cap.
+- **Deadline set: the project must be done by 2026-07-13**, so the
+  one-change-at-a-time tuning rule is retired — runs now bundle every
+  evidence-backed change. Full day-by-day schedule is at the top of
+  [TRAINING_PLAN.md](TRAINING_PLAN.md).
 - **Next action: run Night 3 in [TRAINING_PLAN.md](TRAINING_PLAN.md)** —
-  same command at `--learning-rate 0.0001` (the one evidence-backed change).
-  Gate: promote only if 25-episode mean_lines beats 1.04.
-- The optional Track 1 final attempt is now Night 4 in the plan.
+  Night 2's command with `--learning-rate 0.0001` (fixes the hot updates)
+  **and** `--top-out-penalty 25` (attacks the survival bottleneck).
+  Gate: promote only if 25-episode mean_lines beats 1.04; the gate table
+  also picks the 7/10 day-slot run.
+- The optional Track 1 final attempt is now Night 4 in the plan
+  (night 7/10 → 11); report writing is reserved for 7/12–13.
 
 Status on 2026-07-09 (afternoon — Night 2 attempt 1 hung, fix pushed):
 

@@ -31,6 +31,26 @@ Expected line ceilings for context: at a 500-piece cap the maximum possible is
 reach ~192 lines at 500 pieces with queue lookahead, so Track 4 gains will be
 in the last few lines and in mean consistency.
 
+## Schedule to the 2026-07-13 deadline (set 2026-07-09 night)
+
+The project must be done by **2026-07-13**, so the one-change-at-a-time
+tuning rule is retired (decided 2026-07-09 night): runs now bundle every
+change the evidence supports, and each ~8 h slot (a night, or a daytime run
+— Night 2 attempt 2 ran fine 1:24–9:12 PM) must earn its keep.
+
+- **Night 7/09 → 10:** Night 3 below — Track 3 bundled run (lr 1e-4 +
+  top-out penalty 25).
+- **Morning 7/10:** steps 3.2/3.3 evals (~30 min), apply the gate. Then
+  start the **day slot**: if Night 3 improved things, the follow-up variant
+  from its gate table; if not, the fallback variant.
+- **Night 7/10 → 11:** Night 4 — Track 1 final documented attempt (3M
+  frames). Track 2 confirm (~10 min) the next morning.
+- **Day/night 7/11 → 12:** last Track 3 slot with the best-known settings
+  if the gates say another run is worth it; otherwise skip and start the
+  report. Whatever is promoted by the morning of 7/12 is final.
+- **7/12 → 13:** freeze results, write the report per
+  `docs/REPORTING_NOTES.md`. No training after 7/12 morning.
+
 ---
 
 ## Night 1 — Track 4 at 500 pieces + Track 3 timing pilot (~4.5 h total)
@@ -172,7 +192,9 @@ Stop-Transcript
   JSON, `meta.json`).
 - If still 0 lines: do not add more timesteps. The next levers, in order, are
   a higher `--line-reward` (e.g. 50), longer training `--max-pieces`, and an
-  entropy schedule — one change at a time. (Also worth knowing: the pilot
+  entropy schedule — one change at a time *(rule retired 2026-07-09 night
+  for the 7/13 deadline; see the schedule section at the top)*. (Also worth
+  knowing: the pilot
   showed `clip_fraction` ~0.4 and `approx_kl` ~0.05, which is on the hot
   side for PPO — a lower learning rate, e.g. 1e-4, is another single-change
   lever if training looks unstable — attempt 1 reached `clip_fraction` ~0.47
@@ -193,49 +215,61 @@ model's 0.92, so the **final model was promoted** to
 - **PPO ran hot the whole run**: `approx_kl` ~0.15–0.18 and `clip_fraction`
   ~0.41–0.44 sustained for all 100M steps (healthy is roughly ≤0.03 / ≤0.2).
   Each update overshoots, which is the standard signature behind exactly
-  this kind of plateau-plus-oscillation. This makes learning rate 1e-4 the
-  evidence-backed single change for Night 3.
+  this kind of plateau-plus-oscillation. Learning rate 1e-4 is the
+  evidence-backed fix, bundled into Night 3.
 - Behavior note: episodes end by top-out after ~28 pieces (of a 500 cap) —
   the agent clears ~1 line and then dies. Survival, not line-finding, is now
   the bottleneck.
 
-## Night 3 — Track 3 second run at lr 1e-4 (~7 h)
+## Night 3 — Track 3 bundled run: lr 1e-4 + top-out penalty 25 (~7-8 h)
 
-One change from Night 2's command, per the one-change-at-a-time rule:
-`--learning-rate 0.0001` (was 3e-4). Everything else identical, same seed,
-fresh run (the trainer has no resume flag, and a fresh run keeps the two
-curves directly comparable).
+Bundles the two changes Night 2's evidence supports (one-change rule
+retired for the 7/13 deadline):
+
+- `--learning-rate 0.0001` (was 3e-4) — fixes the sustained-hot updates
+  (`approx_kl` ~0.15–0.18, `clip_fraction` ~0.41–0.44) behind the 36M
+  plateau.
+- `--top-out-penalty 25` (was 10) — attacks the survival bottleneck: the
+  agent dies at ~28 of 500 pieces, and at penalty 10 a single line clear
+  (+10) fully pays for the death, so dying young is cheap. At 25 the agent
+  must survive longer / clear more to come out ahead.
+
+Everything else identical to Night 2, same seed. Note the reward *scale*
+changes with the penalty, so compare runs on `mean_lines`, `score` and
+`pieces` in the evaluation JSONs (and lines/lengths in the eval history),
+not on raw reward.
 
 ```powershell
 Start-Transcript -Path runs\plan_20260708\night3_transcript.txt -Append
 
-# 3.1  Track 3: 100M steps at lr 1e-4 (~7-8 h).
-python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lr1e4_100m --logdir runs/plan_20260708/track3_lr1e4_100m_logs --timesteps 100000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --learning-rate 0.0001 --eval-freq 1000000 --checkpoint-freq 5000000
+# 3.1  Track 3: 100M steps, lr 1e-4, top-out penalty 25 (~7-8 h).
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lr1e4_pen25_100m --logdir runs/plan_20260708/track3_lr1e4_pen25_100m_logs --timesteps 100000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --learning-rate 0.0001 --top-out-penalty 25 --eval-freq 1000000 --checkpoint-freq 5000000
 
 # 3.2  Evaluate the final model.
-python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr1e4_100m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lr1e4_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr1e4_100m/evaluation.json
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr1e4_pen25_100m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lr1e4_pen25_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr1e4_pen25_100m/evaluation.json
 
 # 3.3  Evaluate the eval-callback best model.
-python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr1e4_100m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lr1e4_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr1e4_100m/evaluation_best.json
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr1e4_pen25_100m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lr1e4_pen25_100m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr1e4_pen25_100m/evaluation_best.json
 
 Stop-Transcript
 ```
 
 Watch `approx_kl` / `clip_fraction` in `progress.csv`: at lr 1e-4 they
-should sit well below Night 2's ~0.15 / ~0.42. If eval reward is still
-clearly climbing at 100M (unlike Night 2, which plateaued at 36M), a
-continuation run is worth it.
+should sit well below Night 2's ~0.15 / ~0.42.
 
-**Decision gate after Night 3:**
+**Decision gate after Night 3 (morning 7/10)** — promote whichever model
+beats the current artifact's 25-episode `mean_lines` 1.04, then pick the
+7/10 **day-slot** run:
 
-- Promote (final or callback-best, whichever is better) to
-  `artifacts/custom_pure_rl/` only if its 25-episode `mean_lines` beats the
-  current 1.04.
-- If lr 1e-4 is *worse* (e.g. still climbing but far below 1.04 at 100M —
-  too slow), the remaining levers, one at a time, are: a smaller
-  intermediate lr (2e-4), higher `--line-reward` (e.g. 50), or an entropy
-  schedule. Given the survival bottleneck, a higher `--top-out-penalty` is
-  also now a candidate lever.
+- Night 3 clearly better (mean_lines ≥ ~1.5) *and* still climbing at 100M
+  → day slot re-runs the same command with more steps if time allows, or
+  simply keep the result.
+- Night 3 better but plateaued again → day slot adds `--line-reward 50`
+  on top of Night 3's settings (bigger prize per clear, penalty and lr
+  kept).
+- Night 3 *worse* than Night 2 (lr 1e-4 too slow — reward far below
+  Night 2's curve at the same step count and not accelerating) → day slot
+  uses `--learning-rate 0.0002 --top-out-penalty 25` instead.
 
 ## Night 4 (optional) — Track 1 final documented attempt
 
@@ -278,8 +312,8 @@ Stop-Transcript
   full Night 2 training log written by the trainer itself.
 - `runs/plan_20260708/track3_lines_100m/evaluation*.json` — first Track 3
   result under the lines reward (mean_lines 1.04; promoted 2026-07-09).
-- `runs/plan_20260708/track3_lr1e4_100m/evaluation*.json` and its
-  `_logs/progress.csv` — the lr 1e-4 comparison run (Night 3).
+- `runs/plan_20260708/track3_lr1e4_pen25_100m/evaluation*.json` and its
+  `_logs/progress.csv` — the bundled lr 1e-4 + penalty 25 run (Night 3).
 - `runs/plan_20260708/track1_nosticky_3m/evaluation*.json` — Track 1
   non-sticky outcome (optional night).
 
