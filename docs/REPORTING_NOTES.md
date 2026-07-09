@@ -12,7 +12,9 @@ This project will later need a detailed report covering:
 
 Future AI agents should read this file, `docs/MODELS.md`, `STATUS.md`,
 `NEXT_STEPS.md`, and the latest `docs/SESSION_*.md` file before writing the
-report.
+report. `docs/EXPECTED_PERFORMANCE.md` holds the literature-grounded
+expectations per track (with citations) and the human-level comparison —
+use it for the report's analysis sections (items 7–9 below).
 
 ## Current Track Framing
 
