@@ -1,5 +1,19 @@
 # Next Steps
 
+Status on 2026-07-09 (afternoon — Night 2 attempt 1 hung, fix pushed):
+
+- Night 2 attempt 1 froze at 4.0M/100M steps: the eval callback's
+  deterministic policy hovered a piece forever via upward rotation kicks
+  canceling gravity, and episodes only ended when pieces locked. Fixed in
+  `gym_env.py` with `max_steps_per_piece=50` (force-lock after 50
+  non-locking steps); 2 regression tests added — suite is 19 passed.
+  Full diagnosis in `docs/SESSION_2026-07-09.md`.
+- **Next action: kill the stuck process, rename the attempt-1 run dirs,
+  re-run Night 2 step 2.1 unchanged** — procedure at the top of the Night 2
+  section in [TRAINING_PLAN.md](TRAINING_PLAN.md).
+- Attempt 1 upside: first Track 3 line clears ever seen (eval episodes at
+  2M/3M with positive reward).
+
 Status on 2026-07-08 (evening — Night 1 complete):
 
 - Night 1 ran and its gate decisions are made (details in

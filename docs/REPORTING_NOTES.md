@@ -105,3 +105,12 @@ Keep these artifacts for report writing:
   `n_envs` distinct piece sequences; standalone `evaluate` results were
   always per-episode seeded and stay valid. Piece sequences for a given seed
   changed with the fix, so do not compare same-seed episodes across it.
+- Fixed on 2026-07-09: `TetrisScoreEnv` episodes could be infinite — upward
+  rotation kicks can cancel gravity, so a deterministic policy could hover a
+  piece forever (this hung Night 2 attempt 1 at 4.0M/100M steps inside the
+  eval callback, ~15 h at full CPU with no progress). The env now force-locks
+  a piece after 50 non-locking steps (`max_steps_per_piece`), like real
+  Tetris' move-limit lock delay. This slightly changes env dynamics for
+  degenerate hovering play only; normal play is unaffected. Attempt 1's
+  partial training data (≤4M steps) predates the fix and should not be
+  merged with the restarted run's curves.

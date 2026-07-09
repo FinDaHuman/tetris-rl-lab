@@ -76,3 +76,30 @@ def test_explicit_reset_seed_is_deterministic() -> None:
     env.reset()  # advance the stream
     env.reset(seed=42)
     assert _spawn_pair(env) == first
+
+
+def test_forced_lock_bounds_steps_per_piece() -> None:
+    env = TetrisScoreEnv(seed=0, reward_mode="lines", max_steps_per_piece=3)
+    env.reset(seed=0)
+    rewards = []
+    for _ in range(3):
+        _, reward, terminated, truncated, info = env.step(0)  # NOOP
+        rewards.append(reward)
+        assert not (terminated or truncated)
+    # A fresh piece needs ~20 gravity steps to lock naturally, so with a
+    # 3-step cap the third step must have force-locked it.
+    assert info["pieces"] == 1
+    assert rewards[-1] >= env.piece_reward
+
+
+def test_every_constant_action_policy_terminates_within_bound() -> None:
+    max_pieces = 30
+    for action in range(TetrisScoreEnv(seed=0).action_space.n):
+        env = TetrisScoreEnv(seed=0, reward_mode="lines", max_pieces=max_pieces)
+        env.reset(seed=action)
+        bound = max_pieces * (env.max_steps_per_piece + 1)
+        for step in range(bound):
+            _, _, terminated, truncated, _ = env.step(action)
+            if terminated or truncated:
+                break
+        assert terminated or truncated, f"action {action} never ended within {bound} steps"

@@ -38,10 +38,13 @@ class TetrisScoreEnv(gym.Env):
         line_reward: float = 10.0,
         piece_reward: float = 0.25,
         top_out_penalty: float = 10.0,
+        max_steps_per_piece: int = 50,
     ):
         if reward_mode not in REWARD_MODES:
             raise ValueError(f"reward_mode must be one of {REWARD_MODES}, got {reward_mode!r}")
         self.max_pieces = max_pieces
+        self.max_steps_per_piece = int(max_steps_per_piece)
+        self._steps_since_lock = 0
         self.reward_mode = reward_mode
         self.line_reward = float(line_reward)
         self.piece_reward = float(piece_reward)
@@ -69,16 +72,31 @@ class TetrisScoreEnv(gym.Env):
         super().reset(seed=seed)
         game_seed = int(self.np_random.integers(0, 2**31 - 1))
         self.game = TetrisGame(seed=game_seed)
+        self._steps_since_lock = 0
         return self._obs(), self._info()
 
     def step(self, action):
         lines_before = self.game.lines
         pieces_before = self.game.pieces
         result = self.game.step(action)
+        raw_reward = result.reward
         terminated = result.terminated
+        if self.game.pieces > pieces_before:
+            self._steps_since_lock = 0
+        else:
+            self._steps_since_lock += 1
+            # Upward rotation kicks can offset gravity indefinitely, so a
+            # deterministic policy can hover one piece forever and the episode
+            # never ends. Like real Tetris' move-limit lock delay, force the
+            # piece down after a bounded number of non-locking steps.
+            if not terminated and self._steps_since_lock >= self.max_steps_per_piece:
+                forced = self.game.step(Action.HARD_DROP)
+                raw_reward += forced.reward
+                terminated = forced.terminated
+                self._steps_since_lock = 0
         truncated = self.game.pieces >= self.max_pieces
         if self.reward_mode == "score":
-            reward = result.reward
+            reward = raw_reward
         else:
             cleared = self.game.lines - lines_before
             placed = self.game.pieces - pieces_before

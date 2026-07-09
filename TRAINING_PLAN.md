@@ -109,6 +109,30 @@ Copy-Item runs\plan_20260708\track4_queue_500\meta.json artifacts\custom_best\me
 
 ## Night 2 — Track 3 main run with the lines reward (~7 h)
 
+> **Attempt 1 (2026-07-08 → 09) hung — kill it and restart.** The run froze
+> at exactly 4.0M steps (~10:40 PM, iteration 976) inside the eval callback:
+> a py-spy stack dump showed the main thread spinning in
+> `EvalCallback → evaluate_policy → model.predict` for 14+ hours at full CPU
+> with zero new output anywhere. Root cause: upward SRS rotation kicks can
+> offset gravity one-for-one, so a *deterministic* policy (which is what the
+> eval callback uses) can hover one piece in a perfect state cycle forever,
+> and the env only ended episodes when pieces locked. Fixed 2026-07-09 in
+> `gym_env.py`: `max_steps_per_piece` (default 50) force-locks a piece after
+> 50 non-locking steps, like real Tetris' move-limit lock delay, so every
+> episode is bounded. Restart procedure:
+>
+> 1. `Ctrl+C` the stuck run (or `Stop-Process -Id <pid>`). Nothing further is
+>    lost — no checkpoint existed yet (first was due at 5M) and the process
+>    cannot save its in-memory model.
+> 2. Keep attempt 1's outputs as evidence:
+>    `Rename-Item runs\plan_20260708\track3_lines_100m track3_lines_100m_attempt1_hung`
+>    `Rename-Item runs\plan_20260708\track3_lines_100m_logs track3_lines_100m_attempt1_hung_logs`
+> 3. Re-run step 2.1 below unchanged (the fix is in the env, not the command).
+>
+> Encouraging sign from attempt 1: the 2M and 3M eval histories each contain
+> an episode with positive reward (+6.0, +7.25), i.e. real line clears — the
+> first ever for Track 3.
+
 Sized to 100M steps using the measured ~3,900 fps (100M / 3900 ≈ 7.1 h).
 Checkpoints every 5M mean an early Ctrl+C still leaves usable models under
 the logdir's `checkpoints/` directory, so there is no harm in stopping it in
@@ -151,7 +175,9 @@ Stop-Transcript
   entropy schedule — one change at a time. (Also worth knowing: the pilot
   showed `clip_fraction` ~0.4 and `approx_kl` ~0.05, which is on the hot
   side for PPO — a lower learning rate, e.g. 1e-4, is another single-change
-  lever if training looks unstable at 50M.)
+  lever if training looks unstable — attempt 1 reached `clip_fraction` ~0.47
+  and `approx_kl` ~0.15 by 4M steps while reward was still improving, so
+  watch these columns in `progress.csv`.)
 
 ## Night 3 (optional) — Track 1 final documented attempt
 
