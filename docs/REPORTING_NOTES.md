@@ -120,6 +120,24 @@ Keep these artifacts for report writing:
   degenerate hovering play only; normal play is unaffected. Attempt 1's
   partial training data (≤4M steps) predates the fix and should not be
   merged with the restarted run's curves.
+- Track 3 negative result (2026-07-10 → 11, Night 3): lr 1e-4 +
+  top-out penalty 25 at 200M steps scored **0.44** mean lines (vs the
+  promoted 1.04) and was not promoted. Two report-worthy findings: the
+  lower lr fixed PPO's hot updates (approx_kl 0.15→~0.06, clip_fraction
+  0.42→~0.24) but the run stayed flat, and the 2.5× top-out penalty
+  induced *hovering* (episode steps ~240 → ~330–370 at unchanged ~28
+  pieces; scores 361 → 96 from lost drop points) — a clean example of
+  penalty-shaping creating a degenerate incentive, bounded only by the
+  50-step force-lock. Reward numbers from this run are on a different
+  scale (penalty 25) and must not sit in the same table as penalty-10
+  runs without a note. Attribution is confounded: both changes landed in
+  one run (deadline-driven bundling).
+- Track 2 baseline re-confirmed 2026-07-11 (post-planner-optimization
+  code path): 37 lines / 3700 / 259 decisions on seeds 0–2 —
+  `runs/plan_20260708/track2_confirm.json`.
+- Deadline triage 2026-07-11: the optional Track 1 non-sticky attempt was
+  dropped; Track 1 evidence remains the earlier overnight transcript
+  (`Windows PowerShell.txt`) plus `docs/EXPECTED_PERFORMANCE.md`.
 - Track 3 milestone (2026-07-09, Night 2): first pure-RL line clears —
   mean_lines 1.04 / max 3 over 25 deterministic episodes at 100M steps.
   The promoted `artifacts/custom_pure_rl/` model replaced the 2026-07-03

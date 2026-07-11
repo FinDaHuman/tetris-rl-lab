@@ -38,18 +38,21 @@ tuning rule is retired (decided 2026-07-09 night): runs now bundle every
 change the evidence supports, and each ~8 h slot (a night, or a daytime run
 — Night 2 attempt 2 ran fine 1:24–9:12 PM) must earn its keep.
 
-- **Night 7/09 → 10:** Night 3 below — Track 3 bundled run (lr 1e-4 +
-  top-out penalty 25).
-- **Morning 7/10:** steps 3.2/3.3 evals (~30 min), apply the gate. Then
-  start the **day slot**: if Night 3 improved things, the follow-up variant
-  from its gate table; if not, the fallback variant.
-- **Night 7/10 → 11:** Night 4 — Track 1 final documented attempt (3M
-  frames). Track 2 confirm (~10 min) the next morning.
-- **Day/night 7/11 → 12:** last Track 3 slot with the best-known settings
-  if the gates say another run is worth it; otherwise skip and start the
-  report. Whatever is promoted by the morning of 7/12 is final.
+- ~~**Night 7/09 → 10:** Night 3 — Track 3 bundled run.~~ *Actual: the
+  user ran Night 3 on 7/10 → 11 at 200M steps (~17 h). Outcome: worse
+  (0.44 mean lines vs 1.04) — no promotion; see the Night 3 outcome
+  note.*
+- ~~**Night 7/10 → 11:** Track 1 final attempt + Track 2 confirm.~~
+  *Deadline triage 7/11: Track 1 attempt dropped (report uses existing
+  evidence + literature); Track 2 confirm ran 7/11 — baseline reproduced
+  exactly (37 lines / 3700 on seeds 0–2,
+  `runs/plan_20260708/track2_confirm.json`).*
+- **Night 7/11 → 12 (last training slot):** Night 4 — Track 3 final run,
+  Night 2 config at lr 2e-4, 150M steps. Evals + last gate the morning of
+  7/12.
 - **7/12 → 13:** freeze results, write the report per
-  `docs/REPORTING_NOTES.md`. No training after 7/12 morning.
+  `docs/REPORTING_NOTES.md`. No training after the morning-of-7/12
+  evals.
 
 ---
 
@@ -271,7 +274,77 @@ beats the current artifact's 25-episode `mean_lines` 1.04, then pick the
   Night 2's curve at the same step count and not accelerating) → day slot
   uses `--learning-rate 0.0002 --top-out-penalty 25` instead.
 
-## Night 4 (optional) — Track 1 final documented attempt
+**Night 3 outcome (2026-07-10 → 11, run at 200M steps by user's choice,
+~17 h): worse — no promotion.** Final model mean_lines **0.44** (max 2,
+9/25 episodes with a line, mean score 96) vs the promoted 1.04;
+callback-best 0.28. The artifact keeps the Night 2 model. What the logs
+show:
+
+- **The run never took off.** Training/eval reward sat at ≈ −16 (i.e.
+  most episodes: ~28 pieces × 0.25 + 0–1 lines − 25 penalty) for the
+  entire 200M steps. Night 2 had reached its +7 level by 36M.
+- **lr 1e-4 did stabilize PPO** (`approx_kl` ~0.05–0.07, `clip_fraction`
+  ~0.22–0.26, vs Night 2's 0.15/0.42) — but stable-and-flat.
+- **Penalty 25 backfired into hovering.** Episode length grew to ~330–370
+  steps while pieces stayed ~28 (Night 2: ~240 steps for the same
+  pieces): the agent spends its 50-step-per-piece budget delaying locks
+  to postpone the −25, exactly the exploit the force-lock caps but can't
+  remove the incentive for. The lower eval scores (96 vs 361 — fewer
+  drop points) corroborate. Two mechanisms likely compounded: the big
+  constant penalty inflates VecNormalize's reward std (diluting the line
+  signal), and delaying death is locally easier to learn than stacking
+  better.
+- Attribution is confounded (both changes landed together — the known
+  cost of bundling), but the hover signature points primarily at the
+  penalty; the lr change behaved as intended.
+
+This *deviates from the gate table above* (which said lr 2e-4 **+ pen
+25**): given the hover evidence, the final Track 3 slot reverts the
+penalty to 10 — see Night 4 below.
+
+## Night 4 (2026-07-11 → 12) — final Track 3 slot: Night 2 config at lr 2e-4
+
+Last training slot before the 7/12 freeze. Rationale: Night 2's config is
+the only one proven to clear lines (1.04); its one diagnosed defect was
+hot updates causing the 36M plateau. Night 3 proved lr 1e-4 stabilizes
+updates but (with pen 25) never learns. So the final run is **exactly
+Night 2 with lr 2e-4** — cool enough to help the plateau, hot enough to
+stay in the regime that demonstrably learns. Penalty back to 10;
+`line_reward`/`piece_reward` untouched (no evidence against them).
+150M steps ≈ 12-13 h at the measured ~3,300 fps: started in the evening
+it finishes early morning 7/12, leaving room for the evals before the
+freeze. (If starting before ~6 PM, 200M ≈ 17 h also fits.)
+
+```powershell
+Start-Transcript -Path runs\plan_20260708\night4_track3_transcript.txt -Append
+
+# 4.1  Track 3 final run: Night 2 config, lr 2e-4, 150M steps (~12-13 h).
+python agents/custom/pure_rl_custom_agent.py train --outdir runs/plan_20260708/track3_lr2e4_150m --logdir runs/plan_20260708/track3_lr2e4_150m_logs --timesteps 150000000 --n-envs 8 --max-pieces 500 --reward-mode lines --seed 7 --learning-rate 0.0002 --eval-freq 1000000 --checkpoint-freq 5000000
+
+# 4.2  Evaluate the final model.
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr2e4_150m/ppo_custom_pure.zip --vec-normalize runs/plan_20260708/track3_lr2e4_150m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr2e4_150m/evaluation.json
+
+# 4.3  Evaluate the eval-callback best model.
+python agents/custom/pure_rl_custom_agent.py evaluate --model runs/plan_20260708/track3_lr2e4_150m/best/best_model.zip --vec-normalize runs/plan_20260708/track3_lr2e4_150m/vec_normalize.pkl --episodes 25 --max-pieces 500 --deterministic --out runs/plan_20260708/track3_lr2e4_150m/evaluation_best.json
+
+Stop-Transcript
+```
+
+**Gate (morning 7/12, the last one):** promote whichever model beats
+mean_lines 1.04; otherwise the Night 2 model stays the final Track 3
+result. Either way, results freeze after these evals and report writing
+starts.
+
+**Deadline triage (2026-07-11):** the optional Track 1 non-sticky attempt
+(previously Night 4) is **dropped** — only one night remained and a
+Track 3 improvement is worth more than a second Track 1 negative result;
+the report will use the existing overnight Track 1 evidence
+(`Windows PowerShell.txt`) plus the literature expectations in
+`docs/EXPECTED_PERFORMANCE.md`. The cheap Track 2 confirmation (old step
+4.3) was run on 2026-07-11 instead — result in
+`runs/plan_20260708/track2_confirm.json`.
+
+## Dropped — Track 1 final documented attempt (was Night 4)
 
 Only if you want a "non-sticky also failed / succeeded" data point for the
 report. Expectation is 0 lines; that is a valid negative result. About 6-12 h

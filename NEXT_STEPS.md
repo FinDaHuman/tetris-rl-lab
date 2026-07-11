@@ -1,5 +1,23 @@
 # Next Steps
 
+Status on 2026-07-11 (afternoon — Night 3 worse, no promotion; final slot planned):
+
+- Night 3 (lr 1e-4 + top-out penalty 25, run at 200M steps, ~17 h) came
+  back **worse**: mean_lines 0.44 vs the promoted 1.04. The run never took
+  off — reward flat at ≈ −16 for all 200M steps. lr 1e-4 did stabilize PPO
+  (kl ~0.05–0.07, clip ~0.22–0.26), but penalty 25 taught the agent to
+  *hover* (episode steps grew ~240 → ~330–370 at the same ~28 pieces) —
+  delaying the −25 is easier to learn than stacking better. **Artifact
+  unchanged** (Night 2 model, 1.04 lines, stays promoted).
+- Track 2 baseline re-confirmed 2026-07-11: 37 lines / 3700 / 259
+  decisions on seeds 0–2 (`runs/plan_20260708/track2_confirm.json`).
+- Deadline triage: the optional Track 1 non-sticky attempt is dropped.
+- **Next action: run Night 4 in [TRAINING_PLAN.md](TRAINING_PLAN.md)** —
+  the final Track 3 slot: exactly Night 2's command with
+  `--learning-rate 0.0002` (penalty back to 10), 150M steps (~12–13 h).
+  Morning 7/12: evals, last gate (promote only above 1.04), then freeze
+  and write the report (7/12–13).
+
 Status on 2026-07-09 (night — Night 2 complete, gate passed, model promoted):
 
 - Night 2 attempt 2 ran clean: 100M steps in ~7.8 h. **First pure-RL line
