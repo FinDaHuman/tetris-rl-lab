@@ -2,8 +2,8 @@
   "generated_by": "python tools/render_best_plays.py",
   "fps": 15,
   "seed_start": 0,
-  "seeds": 20,
-  "track4_seeds": 3,
+  "seeds": 12,
+  "track4_seeds": 5,
   "tracks": {
     "1": {
       "seed": 14,
@@ -57,6 +57,18 @@
       "env": "custom engine",
       "method": "Tool-assisted (placement enumeration + Dellacherie + lookahead + CEM)",
       "model": "artifacts/custom_best/best_weights.npy"
+    },
+    "5": {
+      "seed": 11,
+      "score": 900,
+      "lines": 8,
+      "pieces": 54,
+      "frames": 273,
+      "video": "track5_custom_afterstate.mp4",
+      "vec_normalize": "artifacts\\custom_afterstate\\vec_normalize.pkl",
+      "env": "custom engine",
+      "method": "Pure RL (PPO, MlpPolicy, placement actions, raw board)",
+      "model": "artifacts/custom_afterstate/ppo_custom_afterstate.zip"
     }
   }
 }

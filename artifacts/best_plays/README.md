@@ -11,6 +11,7 @@ capture. The mp4 files are gitignored; regenerate them with the command above.
 | 2 | `track2_ale_tool.mp4` | ALE/Tetris-v5 | Tool-assisted (frame decode + placement search + CEM) | 0 | 37 | 3700 | 259 | `artifacts/ale_stable_high_score/best_weights.npy` |
 | 3 | `track3_custom_pure_rl.mp4` | custom engine | Pure RL (PPO, MlpPolicy, primitive actions) | 4 | 2 | 486 | 33 | `artifacts/custom_pure_rl/ppo_custom_pure.zip` |
 | 4 | `track4_custom_tool.mp4` | custom engine | Tool-assisted (placement enumeration + Dellacherie + lookahead + CEM) | 1 | 798 | 3370000 | 2000 | `artifacts/custom_best/best_weights.npy` |
+| 5 | `track5_custom_afterstate.mp4` | custom engine | Pure RL (PPO, MlpPolicy, placement actions, raw board) | 11 | 8 | 900 | 54 | `artifacts/custom_afterstate/ppo_custom_afterstate.zip` |
 
 Rendered at 15 fps. `manifest.json` has the full stats.
 
@@ -22,10 +23,15 @@ running until you close it:
 ```bash
 python artifacts/best_plays/live_play.py            # track 4, endless
 python artifacts/best_plays/live_play.py --track 3  # track 3, restarts on top-out
+python artifacts/best_plays/live_play.py --track 5  # track 5, placement actions
 ```
 
 Quit with the close button, Esc, or Q. It drives the same agents and the same
 renderer as the videos, so nothing is faked for the viewer.
+
+**Run tracks 3 and 5 side by side** and you are watching the project's controlled
+experiment: same PPO, same network, same reward, same hyperparameters -- the only
+difference is that Track 5 chooses a *placement* and Track 3 chooses a *keypress*.
 
 ## What you are watching
 
@@ -43,6 +49,13 @@ renderer as the videos, so nothing is faked for the viewer.
   It does not top out: it was simulated past 10,000 pieces / 3,997 lines still alive,
   holding ~0.4 lines per piece (the theoretical maximum). Its piece cap exists only
   because a video needs an end -- run `live_play.py` to watch it go indefinitely.
+- **Track 5** is the controlled experiment. It is Track 3's PPO -- same network, same
+  reward, same hyperparameters, **no hand-authored features and no lookahead** -- with
+  one thing changed: it picks a *placement* (rotation + column) instead of a keypress.
+  That single change took it from 1.04 to 5.60 lines. Watch it next to Track 3: it
+  builds a visibly flatter stack and clears lines on every seed, but it still tops out
+  around 48 pieces, nowhere near Track 4. The pieces snap into place because a
+  placement *is* one action here -- that is the abstraction, not a rendering shortcut.
 
 ## Score conventions
 

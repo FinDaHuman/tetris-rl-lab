@@ -1,0 +1,166 @@
+{
+  "track": "custom_afterstate",
+  "model": "runs\\track5_afterstate\\ppo_custom_afterstate.zip",
+  "vec_normalize": "runs\\track5_afterstate\\vec_normalize.pkl",
+  "episodes": 25,
+  "seed_start": 1000,
+  "max_pieces": 500,
+  "deterministic": true,
+  "mean_lines": 5.6,
+  "max_lines": 9,
+  "min_lines": 3,
+  "mean_score": 676.0,
+  "mean_pieces": 47.6,
+  "rows": [
+    {
+      "seed": 1000,
+      "score": 900,
+      "lines": 8,
+      "pieces": 52
+    },
+    {
+      "seed": 1001,
+      "score": 500,
+      "lines": 5,
+      "pieces": 51
+    },
+    {
+      "seed": 1002,
+      "score": 900,
+      "lines": 8,
+      "pieces": 46
+    },
+    {
+      "seed": 1003,
+      "score": 700,
+      "lines": 6,
+      "pieces": 50
+    },
+    {
+      "seed": 1004,
+      "score": 700,
+      "lines": 5,
+      "pieces": 45
+    },
+    {
+      "seed": 1005,
+      "score": 500,
+      "lines": 3,
+      "pieces": 40
+    },
+    {
+      "seed": 1006,
+      "score": 700,
+      "lines": 5,
+      "pieces": 46
+    },
+    {
+      "seed": 1007,
+      "score": 1000,
+      "lines": 9,
+      "pieces": 55
+    },
+    {
+      "seed": 1008,
+      "score": 700,
+      "lines": 5,
+      "pieces": 48
+    },
+    {
+      "seed": 1009,
+      "score": 700,
+      "lines": 6,
+      "pieces": 52
+    },
+    {
+      "seed": 1010,
+      "score": 600,
+      "lines": 4,
+      "pieces": 43
+    },
+    {
+      "seed": 1011,
+      "score": 700,
+      "lines": 5,
+      "pieces": 46
+    },
+    {
+      "seed": 1012,
+      "score": 700,
+      "lines": 6,
+      "pieces": 51
+    },
+    {
+      "seed": 1013,
+      "score": 800,
+      "lines": 8,
+      "pieces": 52
+    },
+    {
+      "seed": 1014,
+      "score": 700,
+      "lines": 6,
+      "pieces": 48
+    },
+    {
+      "seed": 1015,
+      "score": 500,
+      "lines": 5,
+      "pieces": 48
+    },
+    {
+      "seed": 1016,
+      "score": 500,
+      "lines": 5,
+      "pieces": 47
+    },
+    {
+      "seed": 1017,
+      "score": 800,
+      "lines": 7,
+      "pieces": 54
+    },
+    {
+      "seed": 1018,
+      "score": 500,
+      "lines": 4,
+      "pieces": 41
+    },
+    {
+      "seed": 1019,
+      "score": 600,
+      "lines": 4,
+      "pieces": 44
+    },
+    {
+      "seed": 1020,
+      "score": 800,
+      "lines": 7,
+      "pieces": 53
+    },
+    {
+      "seed": 1021,
+      "score": 700,
+      "lines": 6,
+      "pieces": 43
+    },
+    {
+      "seed": 1022,
+      "score": 700,
+      "lines": 5,
+      "pieces": 50
+    },
+    {
+      "seed": 1023,
+      "score": 400,
+      "lines": 4,
+      "pieces": 41
+    },
+    {
+      "seed": 1024,
+      "score": 600,
+      "lines": 4,
+      "pieces": 44
+    }
+  ]
+}

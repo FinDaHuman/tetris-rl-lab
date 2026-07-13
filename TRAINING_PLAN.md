@@ -468,3 +468,36 @@ is why the run is worth the slot:
 Record the number in `docs/QA_PREP.md` §6.3 and `docs/REPORT.md` §7.2 either way.
 A result that contradicts the report's current framing is a *better* outcome than
 one that flatters it — it means the experiment had teeth.
+
+## RESULT (run 2026-07-13, 2.0 h, 12,001,280 steps)
+
+**Landed in the third row: near Track 3. The experiment had teeth — it refuted the
+report's framing.**
+
+**mean 5.60 lines** (max 9, min 3, sd 1.50; 25 deterministic episodes, seeds
+1000–1024, 500-piece cap) — `artifacts/custom_afterstate/evaluation.json`.
+Mean 47.6 pieces survived, mean score 676. Final `ep_rew_mean` 75.5, `ep_len_mean`
+41.6, 1,664 fps.
+
+| | Track 3 | **Track 5** | Track 4 |
+| --- | --- | --- | --- |
+| Mean lines | 1.04 | **5.60** | 198.1 |
+| Pieces survived | 28.6 | 47.6 | 500 (never tops out) |
+| Lines/piece | 0.036 | 0.118 | 0.399 |
+| ≥1 line | 21/25 | **25/25** | 25/25 |
+
+**The abstraction is worth 5.4× — and it closes only 2.3% of the Track 3 → Track 4
+gap.** So the hand-authored features + lookahead + CEM carry ~97.7% of it. The
+report's guess that the action space was the dominant variable was **wrong**, and
+this run is what showed it.
+
+**Budget note (correcting the plan above):** the plan estimated Track 3 at ~8.5
+primitive steps/piece. Measured on the promoted policy it is **9.11**, so Track 3's
+100M steps = **≈11.0M pieces** against Track 5's 12.0M — matched within 9%. The
+comparison holds.
+
+**Caveat that must travel with the number:** Track 5 **had not converged**
+(`ep_rew_mean` 60 → 75 over the final 4M steps), so 5.60 is a **lower bound**, not a
+ceiling. Track 3, by contrast, *plateaued* at 36M of 100M. The next run — now
+REPORT §10.1 — is Track 5 at 50–100M steps (~8–16 h) to find where it actually
+tops out.

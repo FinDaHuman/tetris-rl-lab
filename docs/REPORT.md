@@ -78,9 +78,12 @@ possible.
 
 These are kept in separate tracks because they change the *decision
 level*: the agent picks **where a piece lands** and search does the rest.
-Two decades of Tetris research shows this abstraction — not the learning
-algorithm — is what produces strong play (see §7 and
-`docs/EXPECTED_PERFORMANCE.md`).
+Two decades of Tetris research reaches strong play through this abstraction
+rather than through the learning algorithm — but that is the literature's claim,
+and Track 5 tested it here directly. It found the abstraction to be **necessary
+but not sufficient**: worth 5.4× on its own, yet only 2.3% of the gap to Track 4.
+What carries the rest is the hand-authored features and the lookahead layered on
+top of it (§7.2, and `docs/EXPECTED_PERFORMANCE.md`).
 
 ## 5. Experiment timeline
 
@@ -94,6 +97,7 @@ algorithm — is what produces strong play (see §7 and
 | 07/10 → 11 | **Night 3 (negative result):** lr 1e-4 + top-out penalty 25, 200M steps (~17 h): **0.44 mean lines** — never took off. The lower lr stabilized PPO (approx_kl 0.15→~0.06) but the harsher penalty taught *hovering* (episode steps ~240→~330–370 at unchanged ~28 pieces). Not promoted. Track 2 re-confirmed (37/3700, seeds 0–2). Track 1 non-sticky attempt dropped (deadline triage). |
 | 07/13 | Final Track 3 slot (lr 2e-4) was not launched; results frozen. Track 1 25-episode evaluation manifest generated. This report written. |
 | 07/13 (after freeze) | Playback added: every track rendered to mp4 (`artifacts/best_plays/`) plus a live viewer. Doing so required running Track 4 past its cap, which produced the §6 addendum — it never tops out. No agent, model, or frozen number changed. |
+| 07/13 (after freeze) | **Track 5 built and run** (12M steps, 2.0 h): the single-variable afterstate experiment §7.2 had been missing. It changes only Track 3's action space. Result 5.60 lines — the action abstraction is worth 5.4×, but closes just 2.3% of the Track 3 → Track 4 gap, **refuting** this report's earlier guess that the abstraction was the dominant variable. |
 
 ## 6. Final results by track
 
@@ -103,6 +107,13 @@ algorithm — is what produces strong play (see §7 and
 | 2 — tools, ALE | **37 lines, score 3,700**, 259 decisions — identical on every seed | seeds 0–9 (+ re-confirm 0–2) | `artifacts/ale_stable_high_score/evaluation.json`, `runs/plan_20260708/track2_confirm.json` |
 | 3 — pure RL, custom | **mean 1.04 lines** (max 3, 21/25 ≥1 line), mean score 361, ~28 pieces survived | 25 deterministic, seeds 1000–1024, 500-piece cap | `artifacts/custom_pure_rl/evaluation.json` |
 | 4 — tools, custom | **mean 198.1 lines of a 200 ceiling** (max 199), mean score 215,530 | 10, seeds 0–9, 500-piece cap | `artifacts/custom_best/evaluation_500.json` |
+| 5 — pure RL, custom, **placement actions** | **mean 5.60 lines** (max 9, min 3, 25/25 ≥1 line), mean score 676, ~48 pieces survived | 25 deterministic, seeds 1000–1024, 500-piece cap | `artifacts/custom_afterstate/evaluation.json` |
+
+Track 5 was added *after* the freeze (2026-07-13) and is the project's one
+controlled experiment: it is Track 3's PPO with **only the action space changed**
+(placement instead of keypress), still with no hand-authored features and no
+lookahead. It does not replace any frozen number above; it explains the gap
+between them. See §7.2.
 
 Every one of these is watchable: `artifacts/best_plays/` holds the best episode
 of each track as an mp4, with `manifest.json` recording the seed and stats behind
@@ -147,18 +158,62 @@ reasons the literature predicts:
    it. Random exploration almost never completes a line from pixels
    (Track 1 never cleared one in 10M frames), and even with structured
    observations it took ~30M steps to reliably find singles (Track 3).
-2. **The action abstraction is very likely the dominant variable — but this
-   project did not isolate it.** On the *same engine and the same machine*,
-   placement-level search (Track 4) scores ~190× the lines of
-   primitive-action RL (Track 3): 198.1 vs 1.04. That gap is real, but
-   Track 4 changes **four** things at once relative to Track 3: the action
-   space (one placement vs ~9 primitive moves), hand-authored board
-   features, a 2-ply queue lookahead, and the optimizer (CEM vs PPO). The
-   190× is therefore the effect of the whole bundle. Attributing most of it
-   to the action space is what the *literature* supports — essentially all
-   strong "RL Tetris" results use afterstate/placement action spaces — not
-   what this experiment demonstrates. The single-variable experiment that
-   would settle it is the afterstate track in §10.4, which was never run.
+2. **The action abstraction is worth 5.4×, but it is *not* the dominant
+   variable — Track 5 measured it (2026-07-13).** On the *same engine and the
+   same machine*, placement-level search (Track 4) scores ~190× the lines of
+   primitive-action RL (Track 3): 198.1 vs 1.04. But Track 4 changes **four**
+   things at once relative to Track 3: the action space (one placement vs ~9
+   primitive moves), hand-authored board features, a 2-ply queue lookahead, and
+   the optimizer (CEM vs PPO). Earlier drafts of this report guessed that the
+   action space carried most of the 190×, on the grounds that essentially all
+   strong "RL Tetris" results use afterstate/placement action spaces. **That
+   guess was wrong, and Track 5 is the experiment that showed it.**
+
+   Track 5 (`agents/custom/afterstate_custom_agent.py`) changes **exactly one**
+   of the four: PPO picks a *placement* (rotation × column, `Discrete(40)`)
+   instead of a keypress. Same network (MlpPolicy 2×256), same reward, same
+   hyperparameters, same seed, **no hand-authored features, no lookahead** — the
+   observation is the raw board plus the current and next piece, so the agent
+   must learn board quality itself. Result: **mean 5.60 lines** (min 3, max 9,
+   sd 1.50; 25 deterministic episodes, seeds 1000–1024, 500-piece cap;
+   `artifacts/custom_afterstate/evaluation.json`).
+
+   | | Track 3 (primitive) | Track 5 (placement) | Track 4 (features+search) |
+   | --- | --- | --- | --- |
+   | Mean lines | 1.04 | **5.60** | 198.1 |
+   | Mean pieces survived | 28.6 | 47.6 | 500 (never tops out) |
+   | Lines per piece | 0.036 | 0.118 | 0.399 |
+   | Episodes clearing ≥1 line | 21/25 | **25/25** | 25/25 |
+   | Training | 100M primitive steps, ~7–8 h | 12M placement steps, **2.0 h** | CEM, minutes |
+
+   **The comparison is fair on experience, not just on steps.** A Track 3 step is
+   one keypress; a Track 5 step is a whole piece. The promoted Track 3 policy
+   spends a measured **9.11 primitive steps per piece**, so its 100M steps are
+   **≈11.0M pieces** of Tetris experience against Track 5's **12.0M** — matched to
+   within 9%, while Track 5 trained in a quarter of the wall-clock.
+
+   Two conclusions, and they point in opposite directions:
+
+   - **The abstraction is real.** At matched experience, changing only the action
+     space gave **5.4× the lines**, 1.7× the survival, and 3.2× the per-piece
+     efficiency, and it clears at least three lines on *every* seed where Track 3
+     is shut out on 4 of 25. Primitive-action PPO also *plateaued* at 36M of its
+     100M steps, whereas Track 5 was **still improving when its budget ran out**
+     (ep_rew_mean 60 → 75 over the final 4M steps). Credit assignment across ~9
+     keypresses per piece is a genuine obstacle, and removing it genuinely helps.
+   - **The abstraction is nowhere near sufficient.** 5.60 lines closes only
+     **2.3%** of the Track 3 → Track 4 gap ((5.60−1.04)/(198.1−1.04)). The other
+     ~97.7% is attributable to what Track 5 was forbidden: hand-authored
+     Dellacherie features, queue lookahead, and CEM. Track 5 learned to *clear
+     lines*; it did not learn to *survive*, topping out around 48 pieces while
+     Track 4 never tops out at all.
+
+   **Honest limit on this result.** Track 5's learning curve had not converged at
+   12M steps, so **5.60 is a lower bound on what the abstraction alone can do, not
+   a ceiling.** This experiment establishes that the action space is not
+   *sufficient* at this compute budget; it does not establish that hand-authored
+   features are *necessary* in principle. Deciding that would need Track 5 run to
+   convergence (§10.1), which the schedule did not allow.
 3. **Optimization pathologies at low compute.** The promoted Track 3 run
    ran "hot" (approx_kl ~0.15–0.18, clip_fraction ~0.41–0.44) and
    plateaued at 36M of 100M steps. The one attempt to fix it (Night 3)
@@ -239,36 +294,42 @@ All work ran on a single low-end Windows 11 laptop, CPU only:
 
 ## 10. Next work
 
-1. **An afterstate variant on the custom env — the missing experiment.**
-   Same engine, placement-level action space, but a *learned* value
-   function over resulting boards from the raw board, with **no
-   hand-authored features**. This is the highest-value item in the project,
-   because it is the single-variable experiment that §7.2 needs and does not
-   have: Track 4 beats Track 3 by 190× while changing four things at once
-   (action space, features, search, optimizer), so the project cannot
-   currently say *which* one carries it. An afterstate agent isolates the
-   action abstraction. If it approaches Track 4, the abstraction carries it;
-   if it lands near Track 3, the hand-authored features do. Either outcome is
-   a real result. It would be a new track, not a change to Track 3.
+1. ~~**An afterstate variant on the custom env — the missing experiment.**~~
+   **Done 2026-07-13 — this is now Track 5 (§7.2).** It answered the question:
+   the action abstraction is worth 5.4× (1.04 → 5.60 lines at matched
+   experience) but accounts for only 2.3% of the Track 3 → Track 4 gap, so the
+   hand-authored features and lookahead carry the rest. **The follow-up is to
+   run it to convergence:** Track 5's learning curve was still climbing when its
+   12M-step budget ended (ep_rew_mean 60 → 75 over the final 4M steps), so 5.60
+   is a lower bound, not a ceiling, and the *sufficiency* of the abstraction is
+   still open. A 50–100M-step run (~8–16 h at the measured 1,664 steps/s) would
+   settle whether placement-level PPO plateaus in the single digits or keeps
+   going. This is now the highest-value item in the project.
+
+2. **A features-only ablation to complete the 2×2.** Track 5 isolated the action
+   space; nothing isolated the *features*. Feeding the 10 Dellacherie features
+   (instead of the raw board) to Track 5's PPO, still with no search, would
+   attribute the remaining 97.7% between "better state representation" and
+   "lookahead + CEM". Together with Track 5 that would fully decompose the 190×.
 
 Then, to improve Track 3's number specifically:
 
-2. **The never-run lr 2e-4 experiment** (Night 4 in `TRAINING_PLAN.md`):
+3. **The never-run lr 2e-4 experiment** (Night 4 in `TRAINING_PLAN.md`):
    Night 2's proven config with only the learning rate halved-ish —
    directly targets the diagnosed 36M plateau without Night 3's penalty
    mistake. 150M steps, ~12–13 h.
-3. **Survival shaping without bigger penalties**: raise `--piece-reward`
+4. **Survival shaping without bigger penalties**: raise `--piece-reward`
    (rewarding each lock fights hovering by construction) instead of
    raising the top-out penalty, which Night 3 showed induces hovering.
-4. **lr / entropy schedules** in the Track 3 trainer (constant-only
+5. **lr / entropy schedules** in the Track 3 trainer (constant-only
    today): linear lr decay is the standard cure for
    plateau-then-oscillate.
-5. **Track 1 non-sticky attempt** (the dropped slot): expected 0 lines,
+6. **Track 1 non-sticky attempt** (the dropped slot): expected 0 lines,
    but it would complete the documented negative-result pair. Note that the
    ALE seed does not vary the piece sequence (§6 / `docs/REPORTING_NOTES.md`),
    so sticky actions are the *only* stochasticity available in that
    environment — which makes this ablation more interesting than it looked.
-6. ~~**Track 4 at longer caps** (1,000+ pieces) if a bigger headline
+7. ~~**Track 4 at longer caps** (1,000+ pieces) if a bigger headline
    number is ever needed~~ — **done 2026-07-13** (§6 addendum): it does not
    top out (10,000 pieces / 3,997 lines, still alive), so a longer cap buys
    a bigger number and no new information. Not worth further time.

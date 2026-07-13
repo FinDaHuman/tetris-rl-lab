@@ -88,3 +88,48 @@ def test_top_out_terminates_with_penalty():
         if truncated:
             break
     assert terminated, "hammering one column should top out"
+
+
+class _FixedPolicy:
+    """Stands in for a PPO model: cycles actions deterministically, no torch needed."""
+
+    def __init__(self, actions):
+        self._actions = list(actions)
+        self._i = 0
+
+    def predict(self, obs, deterministic=True):
+        action = self._actions[self._i % len(self._actions)]
+        self._i += 1
+        return np.array([action]), None
+
+
+class _NullWriter:
+    """Accepts frames like VideoWriter but keeps none of them."""
+
+    def __init__(self):
+        self.frames = 0
+
+    def append(self, frame, hold=1):
+        self.frames += hold
+
+
+def test_render_does_not_change_reported_stats():
+    """Capturing a video must not alter the episode's score, lines, or pieces.
+
+    The rendering path animates each placement with real engine actions, and
+    ``TetrisGame.step(HARD_DROP)`` credits drop points to ``game.score`` -- while
+    the evaluation path teleports the board and counts line clears only. If the two
+    diverge, the published video and manifest report a score no evaluation can
+    reproduce (this happened: 1846 vs 900 on seed 2).
+    """
+    from agents.custom.afterstate_custom_agent import play_and_render
+
+    policy = _FixedPolicy([5, 12, 19, 26, 33, 2, 9, 16])
+    plain = play_and_render(policy, None, seed=11, max_pieces=60)
+
+    policy._i = 0  # same action sequence, now with capture
+    captured = play_and_render(policy, None, seed=11, max_pieces=60, writer=_NullWriter())
+
+    for key in ("score", "lines", "pieces"):
+        assert plain[key] == captured[key], f"{key} differs with rendering: {plain} vs {captured}"
+    assert captured["frames"] > 0, "writer should have received frames"

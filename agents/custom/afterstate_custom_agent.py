@@ -203,10 +203,15 @@ def play_and_render(model, normalizer, *, seed: int, max_pieces: int, determinis
     env = make_env(max_pieces=max_pieces, seed=seed)
     obs, info = env.reset(seed=seed)
     game = env.game
+    # Line-clear score only. PlacementTetrisEnv teleports the board and credits
+    # placement.score_delta, but the animated path below drives the engine with a
+    # real HARD_DROP, which also credits drop points. Tracking the score here (and
+    # writing it back to the engine) keeps both paths on the evaluation convention.
+    score = 0
 
     def draw(flash: bool = False, hold: int = 1) -> None:
         if writer is not None:
-            writer.append(render_frame(game, title=TITLE, seed=seed, flash=flash), hold=hold)
+            writer.append(render_frame(game, title=TITLE, seed=seed, score=score, flash=flash), hold=hold)
 
     draw(hold=8)
     terminated = truncated = False
@@ -228,6 +233,8 @@ def play_and_render(model, normalizer, *, seed: int, max_pieces: int, determinis
                     for act in actions:
                         game.step(act)
                         draw()
+                    score += chosen.score_delta
+                    game.score = score  # drop points are not part of the eval score
                     obs, _, terminated, truncated, info = (
                         env._obs(),
                         0.0,
@@ -244,13 +251,14 @@ def play_and_render(model, normalizer, *, seed: int, max_pieces: int, determinis
 
         lines_before = game.lines
         obs, reward, terminated, truncated, info = env.step(int(action[0]))
+        score = game.score
         draw()
         if game.lines > lines_before:
             draw(flash=True, hold=2)
     draw(hold=20)
     return {
         "seed": seed,
-        "score": int(info["score"]),
+        "score": int(score),
         "lines": int(info["lines"]),
         "pieces": int(info["pieces"]),
         "frames": 0 if writer is None else writer.frames,

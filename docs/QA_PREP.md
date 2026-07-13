@@ -30,8 +30,17 @@ score?"*:
 > environment (37 lines), a real RL result (my custom-env agent does clear
 > lines), and — because the four tracks form a 2×2 — an actual answer to *why*
 > pure RL fails here, rather than just an excuse.
+>
+> And then I ran a fifth track to check my own explanation. I'd claimed the gap
+> was mostly about the action abstraction. Track 5 changes only that — one
+> variable — and it showed I was wrong: the abstraction is worth about 5×, but
+> it accounts for only 2% of the gap. The hand-designed features do the rest.
 
 Then stop talking and let him pick which thread to pull.
+
+**Track 5 is your best card.** It's the difference between a student who built
+four things and a student who ran an experiment, got a result that contradicted
+his own report, and wrote that down. Play it early.
 
 **Be honest about the ordering.** If he asks "did you plan this 2×2 up front as
 an experiment?" — the answer is **no**. It started as a hedge against an
@@ -83,6 +92,11 @@ the environment buys you.
 | 2 — tools, ALE | **37 lines**, 259 decisions | `artifacts/ale_stable_high_score/evaluation.json` |
 | 3 — pure RL, custom | **mean 1.04 lines** (max 3; 21/25 episodes ≥1 line), ~28 pieces survived | `artifacts/custom_pure_rl/evaluation.json` |
 | 4 — tools, custom | **mean 198.1 lines** of a 200 ceiling @ 500-piece cap; uncapped: 10,000 pieces / 3,997 lines and still alive | `artifacts/custom_best/evaluation_500.json` |
+| 5 — pure RL, custom, **placement actions** | **mean 5.60 lines** (max 9, min 3; **25/25** episodes ≥1 line), ~48 pieces survived | `artifacts/custom_afterstate/evaluation.json` |
+
+Track 5 is not a fifth "attempt at a high score" — it is the **controlled
+experiment** that explains the others (§6.3). It is Track 3 with one variable
+changed.
 
 **Two things to say before he reads a number wrong:**
 
@@ -146,6 +160,31 @@ and variance to the elite, repeat. Derivative-free — you never differentiate t
 the game. It's the right tool here because there are only 10 parameters and the
 fitness is a noisy rollout.
 
+### Track 5 — Afterstate RL on my engine (`agents/custom/afterstate_custom_agent.py`)
+**This one IS reinforcement learning** — it's Track 3's PPO, and the *only* thing
+that changed is the action space.
+
+- **Action:** `Discrete(40)` = 4 rotations × 10 columns. **One action = one whole
+  piece placed.** (Track 3 emits ~9 keypresses per piece.) The env maps the action
+  to the nearest legal placement and commits it.
+- **Observation:** raw 20×10 board (200) + current piece one-hot (7) + next piece
+  one-hot (7) = **214 floats**. **No holes, no heights, no bumpiness — no features
+  at all.** It must learn what a bad board looks like.
+- **No lookahead, no search, no engine cloning to plan.** Same one-piece preview
+  Track 3 gets.
+- **Everything else identical to Track 3:** MlpPolicy 2×256, reward
+  `10×cleared² + 0.25/piece − 10 on top-out`, lr 3e-4, γ 0.995, n_steps 512, batch
+  256, 8 envs, seed 7.
+- **12M steps, 2.0 h. Result: mean 5.60 lines.**
+
+The discipline is the whole point, and it's written down as an enforced rule in
+`AGENTS.md`: *if you add a feature to the observation "because it would learn
+faster," you have turned Track 5 into a worse Track 4 and destroyed the only
+experiment that isolates the action abstraction.* If he asks "how do I know you
+didn't sneak features in?" — point at `tests/test_afterstate_env.py::
+test_observation_is_raw_board_only_no_hand_features`, which asserts the observation
+is exactly board + two one-hots and nothing derived.
+
 ---
 
 ## 5. Why they perform so differently — the core of your defense
@@ -185,11 +224,17 @@ once between them:
 | **Model** | model-free | clones the engine and searches 2 pieces ahead |
 | **Params to fit** | ~150k network weights, via PPO | **10 weights**, via CEM |
 
-The literature says the **action abstraction** is the dominant term — essentially
+The literature suggests the **action abstraction** is the dominant term — essentially
 every strong "RL Tetris" result uses afterstate/placement actions
 (Thiery & Scherrer 2009: Dellacherie-style feature agents reach ~660k lines;
-BCTS ~35M). **But see §6.3 — I did not isolate that myself, and you must not
-claim I did.**
+BCTS ~35M). **I tested that on my own engine, and it turned out to be wrong.**
+
+**Track 5 isolates the action space** (change it, and *only* it, from Track 3):
+1.04 → **5.60 lines**. So the abstraction is worth **5.4×** — real, but it closes only
+**2.3%** of the Track 3 → Track 4 gap. The remaining ~97.7% is the hand-authored
+features + lookahead + CEM. **The abstraction is necessary but nowhere near
+sufficient.** Full answer, including the caveat that Track 5 hadn't converged, in
+**§6.3** — read that section before you walk in.
 
 ---
 
@@ -232,19 +277,64 @@ notice.)
 The custom engine (Tracks 3/4) *does* have real seed diversity — 7-bag, seeded per
 episode — so its variance numbers mean something. The ALE ones don't.
 
-### 6.3 ⚠ "You claim the action abstraction is what matters. Did you actually show that?"
-**No — and my report overstates this. Concede it.** Track 4 differs from Track 3 in
-**four** ways at once (action space, hand-authored features, search/lookahead, and
-optimizer). The 190× gap is real, but it's the effect of the *whole bundle*, not of
-the action abstraction alone. Attributing it mostly to the action space is what the
-literature supports, not what my experiment isolates.
+### 6.3 ★ "You claim the action abstraction is what matters. Did you actually show that?"
+**This is now your strongest answer in the entire session. Lead with it if he gives
+you any opening at all.**
 
-**The experiment that would settle it** — and the best answer you can give to "what
-would you do next" — is a **fifth track: afterstate RL**. Same engine, placement-level
-action space, but a *learned* value function over resulting boards with raw board
-input and **no hand-authored features**. If it approaches Track 4, the abstraction
-carries it. If it lands near Track 3, the features do. It's a clean single-variable
-experiment and I know exactly why it's the missing one.
+> "I claimed it, then I realised I hadn't shown it, so I ran the experiment — and it
+> proved me wrong. That's Track 5."
+
+The problem: Track 4 differs from Track 3 in **four** ways at once (action space,
+hand-authored features, search/lookahead, optimizer). The 190× is the effect of the
+whole bundle. My report originally guessed the action space carried most of it,
+because that's what the literature suggests. **That guess was wrong.**
+
+**Track 5** (`agents/custom/afterstate_custom_agent.py`) changes **exactly one** of
+the four. Same PPO, same MlpPolicy 2×256, same reward, same hyperparameters, same
+seed. **No hand features, no lookahead** — the observation is the raw 20×10 board
+plus current and next piece, so it must learn board quality itself. The only
+difference from Track 3: it outputs a **placement** (rotation × column, `Discrete(40)`)
+instead of a keypress.
+
+| | Track 3 (keypress) | **Track 5 (placement)** | Track 4 (features+search) |
+| --- | --- | --- | --- |
+| Mean lines | 1.04 | **5.60** | 198.1 |
+| Pieces survived | 28.6 | 47.6 | 500 (never tops out) |
+| Lines per piece | 0.036 | 0.118 | 0.399 |
+| Episodes clearing ≥1 line | 21/25 | **25/25** | 25/25 |
+| Training | 100M steps, ~7–8 h | 12M steps, **2.0 h** | CEM, minutes |
+
+**Two findings, and you must give both:**
+
+1. **The abstraction is real: 5.4× the lines.** And the comparison is fair on
+   *experience*, not just step count — which he will absolutely probe. A Track 3
+   step is one keypress; a Track 5 step is a whole piece. I measured Track 3 at
+   **9.11 primitive steps per piece**, so its 100M steps ≈ **11.0M pieces** against
+   Track 5's **12.0M** — matched within 9%, in a quarter of the wall-clock.
+2. **But it is nowhere near sufficient: it closes only 2.3% of the gap.**
+   (5.60−1.04)/(198.1−1.04) = 2.3%. The other **97.7%** is the hand-authored
+   features + lookahead + CEM. Track 5 learned to *clear lines*; it never learned to
+   *survive* — it tops out around 48 pieces while Track 4 never tops out at all.
+
+**Conclusion to say out loud:** *"The action abstraction is necessary but nowhere
+near sufficient. I had it backwards, and the experiment is what told me."*
+
+**The caveat you must volunteer** (he will find it otherwise): Track 5's learning
+curve **had not converged** — ep_rew_mean was still climbing, 60 → 75, over the final
+4M steps. So **5.60 is a lower bound on the abstraction, not a ceiling.** What I've
+shown is that the action space isn't sufficient *at this compute budget*; I have
+**not** shown that hand-authored features are necessary in principle. Settling that
+needs Track 5 run to convergence, and that's my #1 next step.
+
+Note the asymmetry, because it's a genuine point in the abstraction's favour: Track 3
+**plateaued** at 36M of its 100M steps. Track 5 was **still improving** when the
+budget ran out.
+
+**"So what would you do next?"** Two things, in order: (a) run Track 5 to convergence
+(50–100M steps, ~8–16 h) to find its actual ceiling; (b) a **features-only** ablation
+— feed the 10 Dellacherie features to Track 5's PPO with still no search — which
+would split the remaining 97.7% between "better state representation" and "lookahead
++ CEM" and fully decompose the 190×.
 
 ### 6.4 "10M steps is tiny. The Atari benchmark is 200M frames."
 The units are a trap — **know this cold, because he will**:
@@ -367,32 +457,49 @@ asked for. Good cautionary tale about reward design.
 
 Say it plainly. It costs you nothing and buys credibility for everything else.
 
-- Whether the positive bumpiness weight is meaningful (§6.6) — no ablation.
+- **Where Track 5 actually converges.** It was still improving at 12M steps, so
+  5.60 lines is a lower bound and I don't know the ceiling of the action
+  abstraction on its own (§6.3). This is the most important "I don't know" in the
+  list — it's the limit of my strongest result, and it's my #1 next step.
+- Whether hand-authored features are *necessary* in principle, or just necessary at
+  my compute budget. Track 5 can't distinguish those.
 - Whether DQN/Rainbow would beat PPO on Track 1 — never tried.
 - Whether Track 3 would improve at 500M+ steps — never had the compute.
 - What the ROM's *actual* on-screen score is vs. my lines×100 convention.
 - Whether Track 4's weights transfer to a different board size — never tested.
 
+(Note: the positive bumpiness weight **is** ablated — see §6.6. Don't say "I don't
+know" to that one.)
+
 ---
 
 ## 9. Cheat sheet
 
-| | Track 1 | Track 2 | Track 3 | Track 4 |
-| --- | --- | --- | --- | --- |
-| Env | ALE | ALE | custom | custom |
-| Method | PPO CnnPolicy | decode + search + CEM | PPO MlpPolicy | enumerate + features + lookahead + CEM |
-| Learns? | yes (RL) | no (policy search) | yes (RL) | no (policy search) |
-| Actions | joystick | placement → joystick | primitive | placement |
-| Budget | 10M steps | CEM gens | 100M steps (~7.8 h) | CEM, 12 gens × 24 pop |
-| Result | **0 lines** | **37 lines** | **1.04 mean lines** | **198 @ 500 cap; never tops out** |
+| | Track 1 | Track 2 | Track 3 | Track 4 | **Track 5** |
+| --- | --- | --- | --- | --- | --- |
+| Env | ALE | ALE | custom | custom | custom |
+| Method | PPO CnnPolicy | decode + search + CEM | PPO MlpPolicy | enumerate + features + lookahead + CEM | **PPO MlpPolicy** |
+| Learns? | yes (RL) | no (policy search) | yes (RL) | no (policy search) | **yes (RL)** |
+| Actions | joystick | placement → joystick | primitive | placement | **placement** |
+| Hand features? | no | yes | no | yes | **no** |
+| Lookahead? | no | yes | no | yes (depth 2) | **no** |
+| Budget | 10M steps | CEM gens | 100M steps (~7.8 h) | CEM, 12 gens × 24 pop | **12M steps (2.0 h)** |
+| Result | **0 lines** | **37 lines** | **1.04 mean lines** | **198 @ 500 cap; never tops out** | **5.60 mean lines** |
+
+**The three numbers that carry the whole defense:** `0 → 1.04 → 5.60 → 198.1`.
+Pixels to structured obs (0 → 1.04): the reward signal appears. Keypress to placement
+(1.04 → 5.60, **the one controlled change**): 5.4×, but only 2.3% of the gap. Adding
+hand features + lookahead + CEM (5.60 → 198.1): everything else.
 
 **Files:** `agents/ale/pure_rl_ale_agent.py` · `agents/ale/ale_tetris_agent.py` ·
 `agents/custom/pure_rl_custom_agent.py` · `agents/custom/tetris_custom_agent.py` ·
-engine in `packages/tetris_env/` · boundaries in `AGENTS.md` · full write-up in
-`docs/REPORT.md`.
+`agents/custom/afterstate_custom_agent.py` · engine in `packages/tetris_env/` ·
+boundaries in `AGENTS.md` · full write-up in `docs/REPORT.md`.
 
 **Live demo — have this ready to run:** `python artifacts/best_plays/live_play.py`
 plays Track 4 in real time, indefinitely. `--track 3` shows the RL agent. Videos of
-all four are in `artifacts/best_plays/`. Showing him Track 1 stacking pieces into a
+all five are in `artifacts/best_plays/`. Showing him Track 1 stacking pieces into a
 tower and dying, next to Track 4 playing forever, makes the whole argument in 30
-seconds without you saying a word.
+seconds without you saying a word. **Then show Track 3 next to Track 5** — same
+algorithm, same network, one changed action space, visibly flatter stack — and that
+makes the *scientific* argument just as fast.

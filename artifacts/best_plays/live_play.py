@@ -2,6 +2,10 @@
 
     python artifacts/best_plays/live_play.py              # track 4 (tool-assisted, endless)
     python artifacts/best_plays/live_play.py --track 3    # track 3 (pure RL, restarts on top-out)
+    python artifacts/best_plays/live_play.py --track 5    # track 5 (pure RL, placement actions)
+
+Running tracks 3 and 5 side by side is the project's controlled experiment made
+visible: same PPO, same network, same reward -- only the action space differs.
 
 Quit with the window's close button, Esc, or Q (Ctrl-C in the terminal also works).
 
@@ -72,6 +76,18 @@ def make_agent(args):
 
         def play(seed: int, writer) -> dict:
             return t4.play_and_render(weights, seed=seed, max_pieces=ENDLESS, writer=writer)
+
+        return play
+
+    if args.track == 5:
+        from agents.custom import afterstate_custom_agent as t5
+
+        model, normalizer, _, _ = t5.load_policy(
+            str(ROOT / "artifacts/custom_afterstate/ppo_custom_afterstate.zip")
+        )
+
+        def play(seed: int, writer) -> dict:
+            return t5.play_and_render(model, normalizer, seed=seed, max_pieces=args.max_pieces, writer=writer)
 
         return play
 
@@ -158,7 +174,7 @@ def main() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Watch a trained agent play Tetris live.")
-    parser.add_argument("--track", type=int, choices=(3, 4), default=4)
+    parser.add_argument("--track", type=int, choices=(3, 4, 5), default=4)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--fps", type=int, default=15)
     parser.add_argument("--buffer", type=int, default=60, help="frames buffered ahead of the display")

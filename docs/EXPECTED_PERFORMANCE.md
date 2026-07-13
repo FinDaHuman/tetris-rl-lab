@@ -180,6 +180,39 @@ already achieved: ~198 of the 200-line maximum at the 500-piece cap
 
 ---
 
+## Track 5 — Afterstate RL on the custom env (PPO, placement actions, no features)
+
+**Prediction, written before the run: "if the literature is right that the
+action abstraction is the dominant term, Track 5 should land much closer to
+Track 4 (~198) than to Track 3 (~1)."**
+
+**Actual: mean 5.60 lines. The prediction was wrong, and that is the most
+useful result in this document.**
+
+- Track 5 is the controlled experiment: Track 3's PPO with *only* the action
+  space changed (`Discrete(40)` = rotation × column), still with **no
+  hand-authored features and no lookahead**. 12M placement steps, 2.0 h.
+- The literature's claim — that essentially all strong RL-Tetris results use an
+  afterstate/placement action space (see Track 3 above) — is **necessary but
+  not sufficient**, and this run is what separates those two. Changing the
+  action space is worth **5.4×** (1.04 → 5.60 lines at matched experience:
+  Track 3's 100M primitive steps ≈ 11.0M pieces at a measured 9.11 steps/piece,
+  vs Track 5's 12.0M). But it closes only **2.3%** of the Track 3 → Track 4 gap.
+- What the published afterstate agents *also* have, and Track 5 deliberately
+  does not: hand-authored board features. Thiery & Scherrer's Dellacherie
+  agent, BCTS, and the popular DQN-Tetris repos all feed the learner
+  **engineered features** (holes, heights, bumpiness, transitions), not the raw
+  board. This run suggests **that** is doing most of the work in those results,
+  and the placement action space is the enabling condition rather than the cause.
+- **Caveat: the run had not converged** (`ep_rew_mean` still climbing 60 → 75
+  over the final 4M steps), so 5.60 is a **lower bound**. What is established is
+  that the abstraction alone is not sufficient *at this budget*; whether it is
+  sufficient *given enough compute* is still open, and is the top of the next-work
+  list in `docs/REPORT.md` §10.1.
+- **vs human: below a novice, but no longer trivially so.** Track 5 clears 5–6
+  lines and survives ~48 pieces, against a first-week human's ~10–30 lines. It is
+  the first agent in this project to clear at least one line on *every* seed.
+
 ## Summary table
 
 | Track | Method / constraint | Expected here | Achieved so far | vs human level |
@@ -188,12 +221,16 @@ already achieved: ~198 of the 200-line maximum at the 500-piece cap
 | 2 | Decode + search + CEM on ALE | Tens of lines | 37 lines, seeds 0–9 (but the ALE seed does not change the piece sequence — effectively one game) | ≈ casual human |
 | 3 | PPO, primitive actions, custom env, 100M steps | Low single-digit mean lines | 1.04 mean lines (max 3) | Well below novice |
 | 4 | Placement search + CEM, custom env | Saturates the piece cap | ~198/200 lines, mean score 215,530; uncapped it does not top out (10,000 pieces / 3,997 lines, confirmed 07/13) | Superhuman efficiency/consistency |
+| 5 | PPO, **placement actions, no features**, custom env, 12M steps | Close to Track 4, if the abstraction is what matters | **5.60 mean lines** (max 9, 25/25 ≥1 line) — **prediction refuted** | Below novice |
 
-The cross-track story the numbers tell: **the action-space abstraction,
-not the learning algorithm, is the dominant variable.** Identical engine,
-identical compute class — placement-level tools score ~200× more lines
-than primitive-action pure RL, matching what two decades of Tetris
-research found.
+The cross-track story the numbers tell, **corrected by Track 5 (2026-07-13)**:
+the action-space abstraction is **real but not dominant**. Earlier versions of
+this document (and of `docs/REPORT.md`) asserted it *was* the dominant variable,
+reasoning from the literature. The controlled experiment says otherwise: on an
+identical engine, identical compute class, and matched experience, changing only
+the action space buys **5.4×** — while the full tool-assisted bundle buys **190×**.
+The abstraction is the enabling condition; the **hand-authored features and the
+lookahead** are what actually carry Tetris.
 
 ## Sources
 

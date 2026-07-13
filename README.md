@@ -29,10 +29,20 @@ Frozen 2026-07-13. Full write-up and evidence: **[docs/REPORT.md](docs/REPORT.md
 | 2 | ALE | Tool-assisted | **37 lines / 3,700** — identical on every seed |
 | 3 | Custom | Pure RL (PPO, primitive actions) | **mean 1.04 lines** (max 3) |
 | 4 | Custom | Tool-assisted (search + CEM) | **mean 198.1 lines** at a 500-piece cap — and it never tops out: 10,000 pieces → 3,997 lines, still alive |
+| 5 | Custom | Pure RL (PPO, **placement actions**, no features) | **mean 5.60 lines** (max 9) — the controlled experiment |
 
 The headline: on the same engine and the same laptop, placement-level search
-(Track 4) clears ~190× the lines of primitive-action RL (Track 3). The action
-abstraction, not the learning algorithm, is what carries Tetris.
+(Track 4) clears ~190× the lines of primitive-action RL (Track 3). **Track 5 is the
+experiment that says why.** It is Track 3 with exactly one variable changed — PPO
+picks a *placement* instead of a keypress, still with no hand-authored features and
+no lookahead — and it reaches 5.60 lines on ~11–12M pieces of experience for both.
+
+So the action abstraction is worth **5.4×**, and it is **not** what carries Tetris:
+it closes only **2.3%** of the Track 3 → Track 4 gap. The remaining ~97.7% belongs to
+the hand-authored Dellacherie features, the queue lookahead, and CEM. An earlier
+version of this README claimed the opposite; Track 5 refuted it. Caveat: Track 5's
+learning curve had not converged at 12M steps, so 5.60 is a **lower bound**, not a
+ceiling ([REPORT §7.2](docs/REPORT.md)).
 
 Watch any of it: `python artifacts/best_plays/live_play.py`.
 

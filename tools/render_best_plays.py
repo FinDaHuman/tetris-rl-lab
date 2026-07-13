@@ -50,6 +50,12 @@ TRACKS = {
         "method": "Tool-assisted (placement enumeration + Dellacherie + lookahead + CEM)",
         "model": "artifacts/custom_best/best_weights.npy",
     },
+    5: {
+        "slug": "track5_custom_afterstate",
+        "env": "custom engine",
+        "method": "Pure RL (PPO, MlpPolicy, placement actions, raw board)",
+        "model": "artifacts/custom_afterstate/ppo_custom_afterstate.zip",
+    },
 }
 
 
@@ -141,7 +147,24 @@ def run_track4(args, outdir: Path) -> dict:
     return {**stats, "video": out.name}
 
 
-RUNNERS = {1: run_track1, 2: run_track2, 3: run_track3, 4: run_track4}
+def run_track5(args, outdir: Path) -> dict:
+    from agents.custom import afterstate_custom_agent as t5
+
+    model, normalizer, model_path, stats_path = t5.load_policy(TRACKS[5]["model"], device=args.device)
+
+    def play(seed: int, writer=None) -> dict:
+        return t5.play_and_render(
+            model, normalizer, seed=seed, max_pieces=args.max_pieces_custom, writer=writer
+        )
+
+    best = _best_seed(play, _seeds(args, 5), "track5")
+    out = outdir / f"{TRACKS[5]['slug']}.mp4"
+    with VideoWriter(out, fps=args.fps) as writer:
+        stats = play(best["seed"], writer=writer)
+    return {**stats, "video": out.name, "vec_normalize": str(stats_path)}
+
+
+RUNNERS = {1: run_track1, 2: run_track2, 3: run_track3, 4: run_track4, 5: run_track5}
 
 
 def _seeds(args, track: int) -> list[int]:
@@ -183,10 +206,15 @@ running until you close it:
 ```bash
 python artifacts/best_plays/live_play.py            # track 4, endless
 python artifacts/best_plays/live_play.py --track 3  # track 3, restarts on top-out
+python artifacts/best_plays/live_play.py --track 5  # track 5, placement actions
 ```
 
 Quit with the close button, Esc, or Q. It drives the same agents and the same
 renderer as the videos, so nothing is faked for the viewer.
+
+**Run tracks 3 and 5 side by side** and you are watching the project's controlled
+experiment: same PPO, same network, same reward, same hyperparameters -- the only
+difference is that Track 5 chooses a *placement* and Track 3 chooses a *keypress*.
 
 ## What you are watching
 
@@ -204,6 +232,13 @@ renderer as the videos, so nothing is faked for the viewer.
   It does not top out: it was simulated past 10,000 pieces / 3,997 lines still alive,
   holding ~0.4 lines per piece (the theoretical maximum). Its piece cap exists only
   because a video needs an end -- run `live_play.py` to watch it go indefinitely.
+- **Track 5** is the controlled experiment. It is Track 3's PPO -- same network, same
+  reward, same hyperparameters, **no hand-authored features and no lookahead** -- with
+  one thing changed: it picks a *placement* (rotation + column) instead of a keypress.
+  That single change took it from 1.04 to 5.60 lines. Watch it next to Track 3: it
+  builds a visibly flatter stack and clears lines on every seed, but it still tops out
+  around 48 pieces, nowhere near Track 4. The pieces snap into place because a
+  placement *is* one action here -- that is the abstraction, not a rendering shortcut.
 
 ## Score conventions
 

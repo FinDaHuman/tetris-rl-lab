@@ -158,15 +158,56 @@ python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_
 python agents/custom/render_custom_episode.py --weights artifacts/custom_best/best_weights.npy --max-pieces 2000 --out artifacts/best_plays/track4_custom_tool.mp4
 ```
 
-## Playback
+## Track 5: Afterstate RL on Custom Env (the controlled experiment)
 
-All four tracks render to mp4, and two can be watched live.
+Purpose: **not** a high-score attempt. It isolates the single variable that Tracks 3
+and 4 confound. It is Track 3's PPO with *only* the action space changed, so the
+project can say how much of the ~190x gap the action abstraction actually explains.
+
+- Entry point: `agents/custom/afterstate_custom_agent.py`
+- Environment: `packages/tetris_env/tetris_env/placement_env.py`
+- Default artifact: `artifacts/custom_afterstate/ppo_custom_afterstate.zip`
+  (+ `vec_normalize.pkl` — the model is unusable without it)
+- Action space: `Discrete(40)` = 4 rotations x 10 columns. **One action = one piece
+  placed.** The env resolves the action to the nearest legal placement.
+- Observation: raw visible board (200) + current piece one-hot (7) + next piece
+  one-hot (7) = 214 floats. **No hand-authored features of any kind.**
+- Identical to the promoted Track 3 run in every other respect: PPO, MlpPolicy
+  2x256, reward `10*cleared^2 + 0.25/piece - 10 on top-out`, lr 3e-4, gamma 0.995,
+  n_steps 512, batch 256, n_epochs 10, clip 0.2, ent_coef 0.01, 8 envs, seed 7.
+- Result (12M steps, 2.0 h, 25 deterministic episodes @ 500-piece cap): **mean 5.60
+  lines** (max 9, min 3, 25/25 clear >= 1 line), mean 47.6 pieces —
+  `artifacts/custom_afterstate/evaluation.json`
+- Conclusion: the action abstraction is worth **5.4x** over Track 3 at matched
+  experience (Track 3's 100M primitive steps = ~11.0M pieces at a measured 9.11
+  steps/piece; Track 5 saw 12.0M), but closes only **2.3%** of the Track 3 -> Track 4
+  gap. Hand-authored features + lookahead + CEM carry the other ~97.7%.
+- **Caveat:** the run had not converged (ep_rew_mean still climbing 60 -> 75 over the
+  final 4M steps), so 5.60 is a lower bound, not a ceiling.
+- Boundary: see `AGENTS.md`. Adding a feature to the observation, a lookahead, or a
+  hyperparameter change destroys the experiment. The renderer may use `replay.py` to
+  animate a placement the policy already chose; it may never use it to choose one.
+
+Commands:
 
 ```bash
-python tools/render_best_plays.py --tracks 1,2,3,4      # best episode per track -> artifacts/best_plays/
+python agents/custom/afterstate_custom_agent.py train --timesteps 12000000 --n-envs 8 --max-pieces 500 --seed 7 --outdir runs/track5_afterstate --logdir runs/track5_afterstate_logs
+python agents/custom/afterstate_custom_agent.py evaluate --model artifacts/custom_afterstate/ppo_custom_afterstate.zip --episodes 25 --max-pieces 500 --seed 1000 --deterministic
+python agents/custom/afterstate_custom_agent.py render --seed 1000 --out artifacts/best_plays/track5_custom_afterstate.mp4
+```
+
+## Playback
+
+All five tracks render to mp4, and two can be watched live.
+
+```bash
+python tools/render_best_plays.py --tracks 1,2,3,4,5    # best episode per track -> artifacts/best_plays/
 python artifacts/best_plays/live_play.py                # track 4 live, runs until closed
 python artifacts/best_plays/live_play.py --track 3      # track 3 live, restarts on top-out
 ```
+
+Watching **track 3 next to track 5** is the fastest way to see the experiment: same
+algorithm, same network, one changed action space, visibly flatter stack.
 
 `render_best_plays.py` searches seeds per track, ranks by lines then score, and
 re-renders the winner. Shared rendering code lives in the engine package
@@ -187,6 +228,7 @@ artifacts/
   ale_stable_high_score/    Track 2 stable ALE copy and evaluation manifest.
   custom_pure_rl/           Track 3 PPO checkpoints, metadata, VecNormalize stats.
   custom_best/              Track 4 optimized weights, history, and evaluations.
+  custom_afterstate/        Track 5 PPO checkpoint, VecNormalize stats, evaluation.
   best_plays/               Best episode per track as mp4 + live viewer.
                             README.md/manifest.json/live_play.py are committed;
                             the .mp4 files are gitignored (regenerate them).

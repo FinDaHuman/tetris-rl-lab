@@ -1,6 +1,8 @@
 # Project Status
 
-Active objective: keep four clear Tetris agent tracks in this repo.
+Active objective: keep the Tetris agent tracks in this repo clearly separated —
+four tracks in the 2x2 (env x method), plus Track 5, the controlled experiment
+that isolates the action abstraction.
 
 No longer active: the real `ALE/Tetris-v5` 2000-line target.
 
@@ -56,6 +58,26 @@ Track 4: tool-assisted high score on custom env:
 - That ceiling is the piece cap, not the agent (measured 2026-07-13): uncapped it
   does not top out — 10,000 pieces / 3,997 lines, still alive, ~0.4 lines/piece.
   At a 2,000-piece cap it clears 798 lines.
+
+Track 5: afterstate RL on custom env (added 2026-07-13, after the freeze):
+
+- CLI: `agents/custom/afterstate_custom_agent.py`
+- Env: `packages/tetris_env/tetris_env/placement_env.py` (`Discrete(40)` =
+  4 rotations x 10 columns; obs = raw board + current + next one-hot, 214 floats)
+- Default output: `artifacts/custom_afterstate/ppo_custom_afterstate.zip`
+- **This is the project's controlled experiment**, not a high-score attempt: it is
+  Track 3's PPO with *only* the action space changed. No hand features, no
+  lookahead, no hyperparameter changes. Boundary enforced in `AGENTS.md` and by
+  `tests/test_afterstate_env.py`.
+- Result (12M steps, 2.0 h): mean 5.60 lines (max 9, min 3, 25/25 episodes >= 1
+  line), mean 47.6 pieces, over 25 deterministic episodes at the 500-piece cap
+  (`artifacts/custom_afterstate/evaluation.json`)
+- Conclusion: the action abstraction is worth 5.4x over Track 3 at matched
+  experience (~11-12M pieces both), but closes only 2.3% of the Track 3 -> Track 4
+  gap. Hand-authored features + lookahead + CEM carry the rest. This *refuted* the
+  report's earlier claim that the abstraction was the dominant variable.
+- Caveat: the run had not converged (ep_rew_mean still climbing 60 -> 75 over the
+  last 4M steps), so 5.60 is a lower bound. Next run: 50-100M steps.
 
 Playback (added 2026-07-13, after the freeze):
 

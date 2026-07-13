@@ -1,0 +1,23 @@
+{
+  "track": "custom_afterstate",
+  "algorithm": "PPO",
+  "action_space": "placement (rotation x column), one action per piece",
+  "observation": "raw visible board + current piece + one next piece (NO hand features)",
+  "lookahead": "none (one-piece preview only, same as Track 3)",
+  "timesteps": 12000000,
+  "max_pieces": 500,
+  "n_envs": 8,
+  "seed": 7,
+  "learning_rate": 0.0003,
+  "gamma": 0.995,
+  "n_steps": 512,
+  "batch_size": 256,
+  "n_epochs": 10,
+  "clip_range": 0.2,
+  "ent_coef": 0.01,
+  "net_layers": 2,
+  "net_width": 256,
+  "normalize": true,
+  "elapsed_hours": 2.0,
+  "purpose": "isolates the action abstraction vs Track 3 (all else held equal)"
+}

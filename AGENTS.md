@@ -75,12 +75,29 @@ planner's `Placement` back into primitive actions so the tool-assisted tracks ca
 be animated instead of teleporting pieces. It is planning-adjacent code sitting in
 the shared engine package, so:
 
-**A pure-RL track must never import `replay.py`, and must never call
-`enumerate_placements`, `TetrisGame.clone`, or touch `game.board` directly — in
-training, in evaluation, or in rendering.** A pure-RL agent renders by drawing the
-states it reached through the Gymnasium step API, nothing more. If you find
-yourself wanting placement search to make a pure-RL video look better, the video is
-telling you the truth about the agent and should be left alone.
+**A primitive-action pure-RL track (Tracks 1 and 3) must never import `replay.py`,
+and must never call `enumerate_placements`, `TetrisGame.clone`, or touch
+`game.board` directly — in training, in evaluation, or in rendering.** Those agents
+render by drawing the states they reached through the Gymnasium step API, nothing
+more. If you find yourself wanting placement search to make a pure-RL video look
+better, the video is telling you the truth about the agent and should be left alone.
+
+**Track 5 is the deliberate exception, and the distinction matters.** Its action
+space *is* placements, so `enumerate_placements` is part of its environment
+(`PlacementTetrisEnv.step`), not assistance to it — this is explicitly allowed above.
+Its renderer may therefore use `replay.py` to *animate* a placement, but only one the
+policy has **already chosen from the observation alone**. The rule for Track 5 is:
+
+- **Allowed:** enumerate the legal placements, let the policy pick one (it outputs a
+  `Discrete(40)` action; the env resolves it to the nearest legal placement), then
+  replay that placement as primitive actions so the video shows real engine play.
+- **Forbidden:** using the enumeration to *score, rank, compare, or filter*
+  placements anywhere in the decision path. The moment placement quality influences
+  the choice, Track 5 has become Track 4 and the experiment is void.
+
+The test that guards this is `tests/test_afterstate_env.py::
+test_observation_is_raw_board_only_no_hand_features`: the policy's input is the raw
+board plus two piece one-hots, so it cannot be receiving placement evaluations.
 
 ## Reporting Notes
 
