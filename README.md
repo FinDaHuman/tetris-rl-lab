@@ -49,6 +49,8 @@ Watch any of it: `python artifacts/best_plays/live_play.py`.
 ## Docs
 
 - **[Final report](docs/REPORT.md)** — the project deliverable
+- [Code walkthrough](docs/QA_CODE_WALKTHROUGH.md) — how the engine, the observation
+  spaces, PPO and CEM actually work, line by line
 - [Model catalog](docs/MODELS.md) — per-track entry points, artifacts, commands
 - [Project summary](docs/PROJECT_SUMMARY.md) — layout and orientation
 - [Expected performance](docs/EXPECTED_PERFORMANCE.md) — literature-grounded

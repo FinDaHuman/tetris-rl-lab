@@ -10,6 +10,15 @@ Rule for the whole session: **every number in here is real and every weakness in
 point will stop believing the strong ones. The strongest position you have is
 that you know exactly where your own work is weak — most students don't.
 
+> **He has said he will also ask about game mechanics, algorithm input, agent
+> structure — and then point at a line of code and ask what it does.**
+> That is a different skill from defending the project, and it has its own file:
+> **[docs/QA_CODE_WALKTHROUGH.md](QA_CODE_WALKTHROUGH.md)**. It teaches the engine,
+> the observation spaces, PPO and CEM from scratch, and drills the ~20 lines most
+> likely to get pointed at, each with an answer. **Read that one first if you are
+> short on time** — this file wins you the argument, but that one gets you through
+> the next five minutes.
+
 ---
 
 ## 1. The opening answer (have this ready verbatim)
