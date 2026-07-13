@@ -147,11 +147,18 @@ reasons the literature predicts:
    it. Random exploration almost never completes a line from pixels
    (Track 1 never cleared one in 10M frames), and even with structured
    observations it took ~30M steps to reliably find singles (Track 3).
-2. **The action abstraction is the dominant variable.** Essentially all
-   strong "RL Tetris" results in the literature use afterstate/placement
-   action spaces. On the *same engine and the same machine*, placement-
-   level search (Track 4) scores ~190× the lines of primitive-action RL
-   (Track 3): 198.1 vs 1.04.
+2. **The action abstraction is very likely the dominant variable — but this
+   project did not isolate it.** On the *same engine and the same machine*,
+   placement-level search (Track 4) scores ~190× the lines of
+   primitive-action RL (Track 3): 198.1 vs 1.04. That gap is real, but
+   Track 4 changes **four** things at once relative to Track 3: the action
+   space (one placement vs ~9 primitive moves), hand-authored board
+   features, a 2-ply queue lookahead, and the optimizer (CEM vs PPO). The
+   190× is therefore the effect of the whole bundle. Attributing most of it
+   to the action space is what the *literature* supports — essentially all
+   strong "RL Tetris" results use afterstate/placement action spaces — not
+   what this experiment demonstrates. The single-variable experiment that
+   would settle it is the afterstate track in §10.4, which was never run.
 3. **Optimization pathologies at low compute.** The promoted Track 3 run
    ran "hot" (approx_kl ~0.15–0.18, clip_fraction ~0.41–0.44) and
    plateaued at 36M of 100M steps. The one attempt to fix it (Night 3)
@@ -159,10 +166,19 @@ reasons the literature predicts:
    top-out penalty made *delaying death by hovering* the easiest reward
    improvement, and performance halved. Fixing both at once was not
    possible within the remaining schedule.
-4. **Sample starvation.** One CPU-night is 100–200M custom-env steps or
-   ~3M ALE frames (~1.5–3% of the classic 200M-frame Atari budgets), with
-   no capacity for hyperparameter sweeps — each configuration got exactly
-   one run.
+4. **Sample starvation.** One CPU-night is 100–200M custom-env steps or a
+   few million ALE agent steps, with no capacity for hyperparameter sweeps —
+   each configuration got exactly one run.
+
+   *Units, stated precisely, because the two are easy to conflate:* Track 1's
+   budget was **10M agent steps**, and with frame-skip 4 that is **~40M
+   emulator frames** — about **20%** of the canonical 200M-*frame* Atari
+   benchmark budget (which is 50M agent steps). So Track 1 was under-trained
+   by roughly 5×, not by the ~50× that a naive "10M vs 200M" reading implies.
+   That said, more steps would not have rescued it: as §7.1 argues, the reward
+   was identically zero for the entire run, so the policy gradient was zero —
+   the problem is the *absence* of a gradient, not a shortage of samples to
+   estimate it from.
 
 Track 3's 1.04 lines is nonetheless a genuine positive result for
 primitive-action RL at this budget: 21/25 deterministic episodes clear at
@@ -206,8 +222,12 @@ All work ran on a single low-end Windows 11 laptop, CPU only:
 
 - Custom env PPO: ~3,300–3,900 steps/s (8 envs) → 100M steps ≈ 7–8 h,
   200M ≈ 17 h. One training slot per day/night.
-- ALE PPO: order 100 fps → 3M frames is an overnight run; 10M frames was
-  the largest Track 1 budget spent.
+- ALE PPO: order 100 agent steps/s → a few million agent steps is an
+  overnight run; **10M agent steps (~40M emulator frames at frame-skip 4)**
+  was the largest Track 1 budget spent — roughly 20% of the canonical
+  200M-frame Atari budget (= 50M agent steps). State the unit: earlier
+  drafts of this report compared agent steps against frames directly and
+  understated the budget.
 - Consequences: no hyperparameter search (every config = one run), no
   seeds-replication of training runs, small networks, and a hard trade
   between run length and number of experiments. Two full nights were
@@ -219,24 +239,35 @@ All work ran on a single low-end Windows 11 laptop, CPU only:
 
 ## 10. Next work
 
-Ordered by expected value:
+1. **An afterstate variant on the custom env — the missing experiment.**
+   Same engine, placement-level action space, but a *learned* value
+   function over resulting boards from the raw board, with **no
+   hand-authored features**. This is the highest-value item in the project,
+   because it is the single-variable experiment that §7.2 needs and does not
+   have: Track 4 beats Track 3 by 190× while changing four things at once
+   (action space, features, search, optimizer), so the project cannot
+   currently say *which* one carries it. An afterstate agent isolates the
+   action abstraction. If it approaches Track 4, the abstraction carries it;
+   if it lands near Track 3, the hand-authored features do. Either outcome is
+   a real result. It would be a new track, not a change to Track 3.
 
-1. **The never-run lr 2e-4 experiment** (Night 4 in `TRAINING_PLAN.md`):
+Then, to improve Track 3's number specifically:
+
+2. **The never-run lr 2e-4 experiment** (Night 4 in `TRAINING_PLAN.md`):
    Night 2's proven config with only the learning rate halved-ish —
    directly targets the diagnosed 36M plateau without Night 3's penalty
    mistake. 150M steps, ~12–13 h.
-2. **Survival shaping without bigger penalties**: raise `--piece-reward`
+3. **Survival shaping without bigger penalties**: raise `--piece-reward`
    (rewarding each lock fights hovering by construction) instead of
    raising the top-out penalty, which Night 3 showed induces hovering.
-3. **lr / entropy schedules** in the Track 3 trainer (constant-only
+4. **lr / entropy schedules** in the Track 3 trainer (constant-only
    today): linear lr decay is the standard cure for
    plateau-then-oscillate.
-4. **An afterstate variant on the custom env** — same engine, placement
-   action space, learned values (no hand-authored features). It would
-   bridge Tracks 3 and 4 and test whether *learning* or *search* carries
-   Track 4; it would be a new track, not a change to Track 3.
 5. **Track 1 non-sticky attempt** (the dropped slot): expected 0 lines,
-   but it would complete the documented negative-result pair.
+   but it would complete the documented negative-result pair. Note that the
+   ALE seed does not vary the piece sequence (§6 / `docs/REPORTING_NOTES.md`),
+   so sticky actions are the *only* stochasticity available in that
+   environment — which makes this ablation more interesting than it looked.
 6. ~~**Track 4 at longer caps** (1,000+ pieces) if a bigger headline
    number is ever needed~~ — **done 2026-07-13** (§6 addendum): it does not
    top out (10,000 pieces / 3,997 lines, still alive), so a longer cap buys

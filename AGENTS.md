@@ -34,7 +34,33 @@ methods.
 Keep artifacts under the matching track directories documented in
 `docs/MODELS.md`.
 
-## Shared Visualization Code (all four tracks)
+## Track 5: Afterstate RL (its own boundary — read this carefully)
+
+`agents/custom/afterstate_custom_agent.py` + `packages/tetris_env/tetris_env/placement_env.py`
+
+Track 5 exists for one reason: Track 4 beats Track 3 by ~190x while changing **four**
+things at once (action space, hand-authored features, queue lookahead, optimizer), so
+the project cannot say which one carries the gap. Track 5 changes **exactly one** of
+them, and its value depends entirely on that discipline.
+
+**Allowed** (this is what makes it not-Track-3):
+- Placement-level actions. It may call `enumerate_placements` and commit a placement.
+
+**Forbidden** (this is what makes it not-Track-4):
+- **No hand-authored features.** No holes, heights, bumpiness, wells, transitions —
+  nothing from `features.py`. The observation is the raw board plus the current and
+  next piece identity, and the agent must learn board quality itself.
+- **No search or lookahead.** It sees the same one-piece preview Track 3 sees. It may
+  not evaluate future placements, clone the engine to plan, or beam-search.
+- **No change to the reward, network, or PPO hyperparameters** relative to the
+  promoted Track 3 run. If you tune them, you reintroduce a confound and the result
+  answers nothing.
+
+If you add a feature to the observation "because it would learn faster," you have
+turned Track 5 into a worse Track 4 and destroyed the only experiment that isolates
+the action abstraction. Don't.
+
+## Shared Visualization Code (all tracks)
 
 Rendering is not assistance — every track may draw itself. These files are shared
 and carry no track allegiance:

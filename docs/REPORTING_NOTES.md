@@ -159,6 +159,27 @@ Keep these artifacts for report writing:
 - Track 2 baseline re-confirmed 2026-07-11 (post-planner-optimization
   code path): 37 lines / 3700 / 259 decisions on seeds 0–2 —
   `runs/plan_20260708/track2_confirm.json`.
+- ⚠ **The ALE seed does not change ALE/Tetris-v5's piece sequence** (verified
+  2026-07-13: NOOP-only rollouts from seeds 0/1/2/42 are bit-identical). The ROM's
+  piece generator is not seeded by ALE; the seed only drives sticky-action noise and
+  no-op starts. Consequences for every ALE number in this repo:
+  - "37 lines on all 10 seeds" is **not** evidence of robustness across games. It is
+    the *same game* ten times — effective sample size for game-to-game variation is
+    **1**, and the zero variance is an artifact. Do not report it as consistency, and
+    do not compute a std over ALE seeds and present it as meaningful.
+  - What *is* genuinely shown: Track 2 is robust to **action-execution noise** — it
+    still scores exactly 37 lines under sticky 0.25 (re-checked 2026-07-13), because
+    the planner is closed-loop and re-reads the board every piece.
+  - Tracks 3/4 (custom engine, 7-bag seeded per episode) **do** have real seed
+    diversity, so their variance numbers are meaningful. ALE and custom variance
+    figures are therefore not comparable.
+  - Condition mismatch to disclose: Track 1 trains/evaluates at `--sticky 0.25`;
+    every Track 2 command defaults to `--sticky 0.0`. It does not change Track 2's
+    result, but the two ALE tracks were not evaluated under identical conditions.
+- ⚠ **Frames vs. agent steps.** Track 1's `timesteps: 10000000` counts *agent steps*;
+  under frame-skip 4 that is ~40M emulator frames (~20% of the canonical 200M-frame
+  Atari budget, which is 50M agent steps). Earlier drafts compared agent steps to
+  frames directly and understated the budget as "1.5–3%". Use one unit and say which.
 - Deadline triage 2026-07-11: the optional Track 1 non-sticky attempt was
   dropped; Track 1 evidence remains the earlier overnight transcript
   (`Windows PowerShell.txt`) plus `docs/EXPECTED_PERFORMANCE.md`.

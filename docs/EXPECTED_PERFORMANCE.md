@@ -99,10 +99,15 @@ setup can extract.**
   piece control compared to the simulator-perfect placement models used in
   the literature, and speed-up as the game progresses.
 - **vs human: roughly a casual-to-intermediate human on this ROM**
-  (37 lines ≈ a casual player's typical game), while being decisively
-  superhuman in consistency (identical 37-line result on every checked
-  seed). Expect improvements from here to be incremental (planner/decoder
-  fixes), not order-of-magnitude.
+  (37 lines ≈ a casual player's typical game). Expect improvements from here
+  to be incremental (planner/decoder fixes), not order-of-magnitude.
+- ⚠ **Do not read the identical 37-line result across seeds as consistency.**
+  The ALE seed does not change this ROM's piece sequence (verified 2026-07-13),
+  so all ten "seeds" are the same game — the zero variance is an artifact of the
+  environment, not a property of the agent. What is genuinely demonstrated is
+  robustness to *action-execution noise*: the planner is closed-loop and still
+  scores exactly 37 lines under sticky actions at 0.25. See
+  `docs/REPORTING_NOTES.md`.
 
 ## Track 3 — Pure RL on the custom env (PPO, MLP, primitive actions)
 
@@ -180,7 +185,7 @@ already achieved: ~198 of the 200-line maximum at the 500-piece cap
 | Track | Method / constraint | Expected here | Achieved so far | vs human level |
 | --- | --- | --- | --- | --- |
 | 1 | PPO from pixels, ALE, ~3M frames | 0 lines, score ~0 | (final attempt = Night 4) | Far below novice |
-| 2 | Decode + search + CEM on ALE | Tens of lines | 37 lines / 3700, seeds 0–9 | ≈ casual human, superhuman consistency |
+| 2 | Decode + search + CEM on ALE | Tens of lines | 37 lines, seeds 0–9 (but the ALE seed does not change the piece sequence — effectively one game) | ≈ casual human |
 | 3 | PPO, primitive actions, custom env, 100M steps | Low single-digit mean lines | 1.04 mean lines (max 3) | Well below novice |
 | 4 | Placement search + CEM, custom env | Saturates the piece cap | ~198/200 lines, mean score 215,530; uncapped it does not top out (10,000 pieces / 3,997 lines, confirmed 07/13) | Superhuman efficiency/consistency |
 

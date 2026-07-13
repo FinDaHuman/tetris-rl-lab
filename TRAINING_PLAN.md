@@ -407,3 +407,64 @@ more distinct candidates, so evaluations of the *same weights* can differ
 mildly from pre-change numbers (spot check: 2 episodes x 60 pieces went from
 mean score 3450/21.0 lines to 3550/21.5 lines — equal or better). Cite
 post-change evaluations for the report rather than mixing eras.
+
+---
+
+# Night 5 (2026-07-13, evening) — Track 5: afterstate RL
+
+**Why this run exists.** It is the one experiment that answers the question the
+whole project is built around. Track 4 beats Track 3 by ~190x, but Track 4
+changes *four* things at once — action space, hand-authored features, queue
+lookahead, and the optimizer — so the study currently cannot say which one
+carries the gap. Track 5 changes **exactly one**: the action space. Same engine,
+same `lines` reward, same PPO, same MlpPolicy(2x256), same hyperparameters as the
+promoted Track 3 run. One action places a piece instead of nudging it. No hand
+features. No lookahead. (Boundary is written down in `AGENTS.md` — respect it or
+the run is worthless.)
+
+**Budget is matched on pieces experienced, not env steps.** Track 3's 100M
+primitive steps at ~8.5 steps/piece is ~12M pieces, so this gets ~12M placement
+steps. Equal experience, different abstraction.
+
+## Step 5.1 — train (~2 h)
+
+Measured throughput on this laptop: **~1,676 placement-steps/s** (8 envs, CPU), so
+12M steps ≈ **2.0 h**. A 600k-step pilot confirmed it learns: 33 pieces placed and
+positive reward (i.e. line clears) by 150k steps, against a random-placement
+baseline of 16 pieces / 0 lines — and against Track 3, which needed ~30M primitive
+steps to find singles reliably.
+
+```powershell
+python agents/custom/afterstate_custom_agent.py train --timesteps 12000000 --n-envs 8 --max-pieces 500 --seed 7 --outdir runs/track5_afterstate --logdir runs/track5_afterstate_logs
+```
+
+Progress is written by the trainer itself to `runs/track5_afterstate_logs/log.txt`
+and `progress.csv` (console capture is not load-bearing). Checkpoints every 1M
+steps; eval callback every 250k.
+
+## Step 5.2 — evaluate (25 deterministic episodes, same protocol as Track 3)
+
+```powershell
+python agents/custom/afterstate_custom_agent.py evaluate --model runs/track5_afterstate/ppo_custom_afterstate.zip --episodes 25 --max-pieces 500 --seed 1000 --deterministic --out runs/track5_afterstate/evaluation.json
+```
+
+## Step 5.3 — render it (optional, ~1 min)
+
+```powershell
+python agents/custom/afterstate_custom_agent.py render --seed 1000 --out artifacts/best_plays/track5_custom_afterstate.mp4
+```
+
+## How to read the result
+
+There is no promotion gate here — **every outcome is a publishable answer**, which
+is why the run is worth the slot:
+
+| Track 5 lands at | Conclusion |
+| --- | --- |
+| near Track 4 (~198 lines) | The **action abstraction** carries the gap. Hand-authored features are a convenience, not the cause. |
+| in between (say 10-100 lines) | Both matter, and you can now *quantify* the split. |
+| near Track 3 (~1 line) | The **hand-authored features + search** carry it; the abstraction alone is not enough. |
+
+Record the number in `docs/QA_PREP.md` §6.3 and `docs/REPORT.md` §7.2 either way.
+A result that contradicts the report's current framing is a *better* outcome than
+one that flatters it — it means the experiment had teeth.
