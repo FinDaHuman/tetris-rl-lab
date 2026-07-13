@@ -11,6 +11,9 @@ Track 1: pure RL on ALE:
 - Policy input: Atari frames only, with standard Atari preprocessing enabled by
   default for training
 - Default evaluation condition: sticky actions with `--sticky 0.25`
+- Final result (frozen 2026-07-13): 10M-frame PPO, 0 lines — mean/max
+  native reward 0.0 over 25 episodes
+  (`artifacts/ale_pure_rl/evaluation.json`)
 
 Track 2: tool-assisted high score on ALE:
 

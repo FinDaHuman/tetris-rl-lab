@@ -47,12 +47,15 @@ change the evidence supports, and each ~8 h slot (a night, or a daytime run
   evidence + literature); Track 2 confirm ran 7/11 — baseline reproduced
   exactly (37 lines / 3700 on seeds 0–2,
   `runs/plan_20260708/track2_confirm.json`).*
-- **Night 7/11 → 12 (last training slot):** Night 4 — Track 3 final run,
-  Night 2 config at lr 2e-4, 150M steps. Evals + last gate the morning of
-  7/12.
-- **7/12 → 13:** freeze results, write the report per
-  `docs/REPORTING_NOTES.md`. No training after the morning-of-7/12
-  evals.
+- ~~**Night 7/11 → 12 (last training slot):** Night 4 — Track 3 final
+  run at lr 2e-4.~~ *Not launched — the slot passed unused. Results are
+  frozen as of 2026-07-13 morning with the Night 2 model (mean_lines
+  1.04) as the final Track 3 result.*
+- **7/13 (deadline day):** results frozen; final report written —
+  `docs/REPORT.md`. A 25-episode Track 1 evaluation manifest
+  (`artifacts/ale_pure_rl/evaluation.json`) was generated 7/13 to
+  replace the transcript-only evidence (the eval-JSON crash that blocked
+  it was fixed 7/08).
 
 ---
 
@@ -334,6 +337,13 @@ Stop-Transcript
 mean_lines 1.04; otherwise the Night 2 model stays the final Track 3
 result. Either way, results freeze after these evals and report writing
 starts.
+
+> **Outcome: not launched.** The 7/11 → 12 slot passed without the run
+> starting, and by 7/13 (deadline day) there was no time left for a
+> 12-13 h run plus evals plus the report. Results were frozen on
+> 2026-07-13 with the Night 2 model as the final Track 3 result; the
+> lr 2e-4 run remains the top item in the "next work" section of
+> `docs/REPORT.md`.
 
 **Deadline triage (2026-07-11):** the optional Track 1 non-sticky attempt
 (previously Night 4) is **dropped** — only one night remained and a

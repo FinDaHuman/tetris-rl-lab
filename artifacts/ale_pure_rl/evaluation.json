@@ -1,0 +1,339 @@
+{
+  "model": "artifacts\\ale_pure_rl\\ppo_ale_pure.zip",
+  "episodes": 25,
+  "seed_start": 1000,
+  "sticky": 0.25,
+  "frame_stack": 4,
+  "preprocessing": "atari",
+  "screen_size": 84,
+  "deterministic": false,
+  "mean_native_reward": 0.0,
+  "max_native_reward": 0.0,
+  "rows": [
+    {
+      "seed": 1000,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 447,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 447,
+        "t": 4.256153
+      }
+    },
+    {
+      "seed": 1001,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 493,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 493,
+        "t": 2.222328
+      }
+    },
+    {
+      "seed": 1002,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 469,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 469,
+        "t": 1.731014
+      }
+    },
+    {
+      "seed": 1003,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 596,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 596,
+        "t": 2.478128
+      }
+    },
+    {
+      "seed": 1004,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 456,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 456,
+        "t": 2.167447
+      }
+    },
+    {
+      "seed": 1005,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 672,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 672,
+        "t": 2.848561
+      }
+    },
+    {
+      "seed": 1006,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 395,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 395,
+        "t": 1.631696
+      }
+    },
+    {
+      "seed": 1007,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 447,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 447,
+        "t": 1.659303
+      }
+    },
+    {
+      "seed": 1008,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 315,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 315,
+        "t": 1.04602
+      }
+    },
+    {
+      "seed": 1009,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 537,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 537,
+        "t": 1.789165
+      }
+    },
+    {
+      "seed": 1010,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 482,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 482,
+        "t": 1.963632
+      }
+    },
+    {
+      "seed": 1011,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 549,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 549,
+        "t": 2.771842
+      }
+    },
+    {
+      "seed": 1012,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 343,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 343,
+        "t": 1.392765
+      }
+    },
+    {
+      "seed": 1013,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 555,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 555,
+        "t": 2.408203
+      }
+    },
+    {
+      "seed": 1014,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 566,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 566,
+        "t": 2.52351
+      }
+    },
+    {
+      "seed": 1015,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 449,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 449,
+        "t": 1.869097
+      }
+    },
+    {
+      "seed": 1016,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 562,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 562,
+        "t": 2.118188
+      }
+    },
+    {
+      "seed": 1017,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 350,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 350,
+        "t": 1.699659
+      }
+    },
+    {
+      "seed": 1018,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 397,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 397,
+        "t": 1.850837
+      }
+    },
+    {
+      "seed": 1019,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 553,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 553,
+        "t": 2.687145
+      }
+    },
+    {
+      "seed": 1020,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 590,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 590,
+        "t": 2.651582
+      }
+    },
+    {
+      "seed": 1021,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 570,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 570,
+        "t": 2.584651
+      }
+    },
+    {
+      "seed": 1022,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 458,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 458,
+        "t": 2.015965
+      }
+    },
+    {
+      "seed": 1023,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 411,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 411,
+        "t": 1.920493
+      }
+    },
+    {
+      "seed": 1024,
+      "native_reward": 0.0,
+      "estimated_lines": 0,
+      "estimated_score": 0,
+      "steps": 522,
+      "terminated": true,
+      "episode": {
+        "r": 0.0,
+        "l": 522,
+        "t": 2.430792
+      }
+    }
+  ]
+}

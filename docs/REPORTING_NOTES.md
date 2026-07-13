@@ -54,8 +54,14 @@ Track 4: tool-assisted high score on custom environment
 
 ## Evidence To Preserve
 
+**The report is written: `docs/REPORT.md` (2026-07-13).** This file
+remains the guide to which numbers may be compared.
+
 Keep these artifacts for report writing:
 
+- `artifacts/ale_pure_rl/evaluation.json`: Track 1 25-episode manifest
+  (generated 2026-07-13; 0 lines, mean native reward 0.0) — the clean
+  replacement for the transcript-only evidence.
 - `Windows PowerShell.txt`: overnight Track 1 ALE pure-RL training/eval
   transcript.
 - `runs/overnight_lines_20260707/custom_tool_queue/evaluation_200.json`: strong

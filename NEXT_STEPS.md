@@ -1,5 +1,23 @@
 # Next Steps
 
+Status on 2026-07-13 (deadline day — results frozen, report written):
+
+- Night 4 (the final Track 3 slot, lr 2e-4) was **not launched**; the
+  7/11 → 12 slot passed unused and no time remained on deadline day.
+- **Results are frozen** with the promoted artifacts as final:
+  - Track 1: 10M-frame PPO, 0 lines (25-episode manifest generated
+    2026-07-13: `artifacts/ale_pure_rl/evaluation.json`).
+  - Track 2: 37 lines / score 3700 / 259 decisions, seeds 0–9
+    (re-confirmed 7/11 on seeds 0–2).
+  - Track 3: Night 2 model, mean 1.04 lines over 25 episodes
+    (`artifacts/custom_pure_rl/`).
+  - Track 4: mean 198.1 lines / score 215,530 at the 500-piece cap
+    (`artifacts/custom_best/`).
+- **The report is written: [docs/REPORT.md](docs/REPORT.md)** — the
+  project deliverable. Anything after the deadline starts from the
+  "Next work" section there (top item: the never-run lr 2e-4 Track 3
+  experiment).
+
 Status on 2026-07-11 (afternoon — Night 3 worse, no promotion; final slot planned):
 
 - Night 3 (lr 1e-4 + top-out penalty 25, run at 200M steps, ~17 h) came
