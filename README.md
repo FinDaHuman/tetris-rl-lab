@@ -1,6 +1,6 @@
 # TetrisGPT
 
-Clean monorepo for four Tetris agent tracks:
+Clean monorepo for five Tetris agent tracks:
 
 - `agents/ale/pure_rl_ale_agent.py` trains a pure RL model on real
   `ALE/Tetris-v5` frames and actions.
@@ -10,11 +10,19 @@ Clean monorepo for four Tetris agent tracks:
   Gymnasium environment with one-piece preview.
 - `agents/custom/tetris_custom_agent.py` trains the tool-assisted custom
   high-score model with placement enumeration and one-piece lookahead.
+- `agents/custom/afterstate_custom_agent.py` trains a pure RL model on the custom
+  engine that acts at **placement level** instead of keypress level — the
+  controlled experiment (Track 5).
 
-The four tracks vary two things — the environment (real Atari vs a custom engine)
-and the method (pure RL vs tool-assisted planning) — to isolate one question: how
-much of "playing Tetris well" comes from *learning*, and how much from the action
-abstraction and search that tools provide?
+**Tracks 1 and 2 run on ALE. Tracks 3, 4 and 5 run on the custom engine.**
+
+Tracks 1–4 form a 2×2: the environment (real Atari vs a custom engine) × the
+method (pure RL vs tool-assisted planning). They were built to isolate one
+question: how much of "playing Tetris well" comes from *learning*, and how much
+from the action abstraction and search that tools provide?
+
+**Track 5 answers it.** It is Track 3 with exactly one variable changed — the
+action space — so the 2×2 no longer has to guess. See Results.
 
 The previous real-ALE 2000-line target is intentionally no longer active. The
 best verified real-ALE 37-line model is set aside under `artifacts/ale_37_line`.
@@ -49,8 +57,10 @@ Watch any of it: `python artifacts/best_plays/live_play.py`.
 ## Docs
 
 - **[Final report](docs/REPORT.md)** — the project deliverable
-- [Code walkthrough](docs/QA_CODE_WALKTHROUGH.md) — how the engine, the observation
-  spaces, PPO and CEM actually work, line by line
+- [Code walkthrough](docs/QA_CODE_WALKTHROUGH.md) — how the engine (custom **and**
+  ALE), the observation spaces, PPO and CEM actually work, line by line
+- [Q&A prep](docs/QA_PREP.md) — the defense: why five tracks, what each number
+  means, and where this work is genuinely weak
 - [Model catalog](docs/MODELS.md) — per-track entry points, artifacts, commands
 - [Project summary](docs/PROJECT_SUMMARY.md) — layout and orientation
 - [Expected performance](docs/EXPECTED_PERFORMANCE.md) — literature-grounded
@@ -63,19 +73,26 @@ Watch any of it: `python artifacts/best_plays/live_play.py`.
 
 ```text
 agents/
-  ale/            Pure-RL ALE agent plus tool-assisted ALE showcase.
-  custom/         Pure-RL custom agent plus tool-assisted custom high-score agent.
+  ale/            Track 1 (pure RL) + Track 2 (tool-assisted) on ALE.
+  custom/         Track 3 (pure RL), Track 4 (tool-assisted), Track 5 (afterstate RL).
   video.py        Streaming mp4 writer shared by every renderer.
 packages/
-  tetris_env/     Reusable Tetris engine, Gymnasium env, frame renderer.
+  tetris_env/     Reusable Tetris engine, Gymnasium envs, features, frame renderer.
+                  engine.py        the game itself (Tracks 3/4/5)
+                  gym_env.py       primitive-action env (Track 3)
+                  placement_env.py placement-action env (Track 5)
+                  features.py      Dellacherie-style board features (Track 4)
 tools/
   render_best_plays.py  Renders the best episode of each track to mp4.
+tests/                  37 tests: engine, features, envs, replay, track boundaries.
+docs/                   Report, Q&A prep, code walkthrough, model catalog.
 artifacts/
-  ale_pure_rl/          Pure-RL ALE PPO checkpoints.
+  ale_pure_rl/          Track 1 PPO checkpoints.
   ale_37_line/          Saved real-ALE 37-line model metadata.
   ale_stable_high_score/ Track 2 stable weights + evaluation manifest.
-  custom_pure_rl/       Pure-RL custom PPO checkpoints (+ vec_normalize.pkl).
-  custom_best/          Custom-env trained weights, history, evaluations.
+  custom_pure_rl/       Track 3 PPO checkpoints (+ vec_normalize.pkl).
+  custom_best/          Track 4 trained weights, history, evaluations.
+  custom_afterstate/    Track 5 PPO checkpoint (+ vec_normalize.pkl), evaluation.
   best_plays/           Best episode per track as mp4, plus the live viewer.
 runs/                   All experiment output (gitignored).
 ```
@@ -142,7 +159,8 @@ python ale_tetris_agent.py train --planner legacy_calibrated --warm-start artifa
 
 ## Custom Tetris Environment
 
-The custom environment models:
+Shared by Tracks 3, 4 and 5. The engine (`packages/tetris_env/tetris_env/engine.py`)
+models:
 
 - 10x20 visible board with two hidden spawn rows.
 - Seven tetrominoes with a 7-bag generator.
@@ -150,6 +168,19 @@ The custom environment models:
 - One-piece preview exposed to the tool-assisted policy and viewer.
 - SRS-style wall kicks.
 - Hard drop, soft drop, line clears, levels, and score-mode line scoring.
+
+Two Gymnasium environments sit on top of the same engine, and the difference
+between them **is** the Track 3 / Track 5 experiment:
+
+| Env | Action space | Used by |
+| --- | --- | --- |
+| `gym_env.py` (`TetrisScoreEnv`) | `Discrete(7)` — one keypress (left/right/rotate/drop) | Track 3 |
+| `placement_env.py` (`PlacementTetrisEnv`) | `Discrete(40)` — one whole piece placed | Track 5 |
+
+Both use the same `lines` reward: `10 × cleared² + 0.25 per piece − 10 on top-out`.
+
+*(ALE Tetris is a different game with different mechanics — 5 actions, no hard drop,
+and reward = lines cleared only. See [the code walkthrough §1B](docs/QA_CODE_WALKTHROUGH.md).)*
 
 ## Track 3: Pure RL on Custom Env
 
@@ -207,6 +238,39 @@ Note that `--max-pieces` alone decides the result: this agent does not top out
 (10,000 pieces → 3,997 lines, still alive), so it clears roughly `0.4 × max-pieces`
 lines. Quote a Track 4 line count only alongside its cap.
 
+## Track 5: Afterstate RL on Custom Env (the controlled experiment)
+
+**Not a high-score attempt.** Tracks 3 and 4 differ in four ways at once (action
+space, hand-authored features, lookahead, optimizer), so the 2×2 alone cannot say
+which one carries the ~190× gap. Track 5 changes **exactly one**: PPO emits a
+*placement* (`Discrete(40)` = 4 rotations × 10 columns) instead of a keypress.
+
+Everything else is held identical to the promoted Track 3 run — same PPO, same
+MlpPolicy 2×256, same reward, same hyperparameters, same seed. **No hand-authored
+features** (the observation is the raw board + current + next piece, 214 floats) and
+**no lookahead**. The boundary is written down in [AGENTS.md](AGENTS.md) and enforced
+by `tests/test_afterstate_env.py`; adding a feature or a lookahead voids the
+experiment.
+
+Train it (12M steps ≈ 2.0 h on a CPU laptop):
+
+```bash
+python agents/custom/afterstate_custom_agent.py train --timesteps 12000000 --n-envs 8 --max-pieces 500 --seed 7 --outdir runs/track5_afterstate --logdir runs/track5_afterstate_logs
+```
+
+Evaluate it (same protocol as Track 3):
+
+```bash
+python agents/custom/afterstate_custom_agent.py evaluate --model artifacts/custom_afterstate/ppo_custom_afterstate.zip --episodes 25 --max-pieces 500 --seed 1000 --deterministic
+```
+
+**Result: mean 5.60 lines** vs Track 3's 1.04 — so the action abstraction is worth
+**5.4×**, at matched experience (Track 3's 100M primitive steps ≈ 11.0M pieces at a
+measured 9.11 steps/piece; Track 5 saw 12.0M). But it closes only **2.3%** of the
+Track 3 → Track 4 gap, so the hand-authored features and lookahead carry the rest.
+Caveat: the run had not converged, so 5.60 is a lower bound. Full analysis in
+[REPORT §7.2](docs/REPORT.md).
+
 ## Best Plays (videos)
 
 `artifacts/best_plays/` holds the best episode of each track as a watchable mp4.
@@ -214,7 +278,7 @@ Each track plays a batch of seeded episodes, and the best one (ranked by lines,
 then score) is replayed with frame capture:
 
 ```bash
-python tools/render_best_plays.py --tracks 1,2,3,4
+python tools/render_best_plays.py --tracks 1,2,3,4,5
 ```
 
 The mp4 files are gitignored; `artifacts/best_plays/README.md` and `manifest.json`
@@ -226,15 +290,20 @@ close it — the Track 4 planner never tops out):
 ```bash
 python artifacts/best_plays/live_play.py            # track 4, endless
 python artifacts/best_plays/live_play.py --track 3  # track 3, restarts on top-out
+python artifacts/best_plays/live_play.py --track 5  # track 5, placement actions
 ```
+
+Running **tracks 3 and 5 side by side** is the controlled experiment made visible:
+same PPO, same network, same reward — only the action space differs.
 
 Individual tracks can also be rendered directly:
 
 ```bash
-python agents/ale/pure_rl_ale_agent.py render --seed 0        # track 1
+python agents/ale/pure_rl_ale_agent.py render --seed 0            # track 1
 python ale_tetris_agent.py render --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy  # track 2
-python agents/custom/pure_rl_custom_agent.py render --seed 0  # track 3
-python agents/custom/render_custom_episode.py --seed 0        # track 4
+python agents/custom/pure_rl_custom_agent.py render --seed 0      # track 3
+python agents/custom/render_custom_episode.py --seed 0            # track 4
+python agents/custom/afterstate_custom_agent.py render --seed 0   # track 5
 ```
 
 ## Archived ALE Baseline
