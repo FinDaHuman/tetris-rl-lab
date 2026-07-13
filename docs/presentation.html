@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TetrisGPT — five agents, one question</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0e14; --panel:#141922; --line:#232c3b; --ink:#e8edf5; --dim:#8b97ab;
+  --rl:#5b9dff;        /* pure RL  */
+  --tool:#ffb454;      /* tool-assisted */
+  --good:#4ec9a0; --bad:#ff6b6b; --warn:#ffd166;
+  --mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+#deck{position:relative;width:100vw;height:100vh}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+  padding:5vh 6vw;animation:in .28s ease}
+.slide.on{display:flex}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+h1{font-size:clamp(30px,4.4vw,64px);line-height:1.08;letter-spacing:-.02em;font-weight:700}
+h2{font-size:clamp(22px,2.9vw,42px);line-height:1.15;letter-spacing:-.015em;margin-bottom:.6em;font-weight:650}
+h3{font-size:clamp(15px,1.35vw,20px);color:var(--dim);text-transform:uppercase;
+  letter-spacing:.14em;font-weight:600;margin-bottom:1.1em}
+p,li{font-size:clamp(15px,1.5vw,23px);line-height:1.55;color:#c9d3e0;max-width:62ch}
+ul{list-style:none} li{padding-left:1.3em;position:relative;margin:.5em 0}
+li:before{content:'';position:absolute;left:0;top:.62em;width:7px;height:7px;
+  border-radius:50%;background:var(--line)}
+b,strong{color:#fff;font-weight:650}
+code,.mono{font-family:var(--mono);font-size:.92em}
+.big{font-size:clamp(40px,7vw,104px);font-weight:750;letter-spacing:-.035em;line-height:1}
+.dim{color:var(--dim)} .rl{color:var(--rl)} .tool{color:var(--tool)}
+.good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+
+/* part divider */
+.divider{justify-content:center;align-items:flex-start}
+.divider .num{font-family:var(--mono);font-size:clamp(60px,11vw,160px);font-weight:700;
+  color:var(--line);line-height:.9}
+.divider h1{margin-top:.1em}
+.divider p{margin-top:.8em;font-size:clamp(16px,1.7vw,26px)}
+
+/* generic blocks */
+.row{display:flex;gap:2.2vw;align-items:center}
+.col{flex:1;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.5em 1.6em}
+.card.rlc{border-left:4px solid var(--rl)} .card.toolc{border-left:4px solid var(--tool)}
+.tag{display:inline-block;font-size:.62em;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;padding:.34em .7em;border-radius:999px;vertical-align:middle}
+.tag.rlt{background:rgba(91,157,255,.14);color:var(--rl)}
+.tag.toolt{background:rgba(255,180,84,.14);color:var(--tool)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:.45em 1.1em;font-size:clamp(13px,1.15vw,18px)}
+.kv dt{color:var(--dim);white-space:nowrap}
+.kv dd{color:#dbe3ee;font-family:var(--mono);font-size:.95em}
+pre{background:#0f131b;border:1px solid var(--line);border-left:3px solid var(--tool);
+  border-radius:9px;padding:1em 1.2em;overflow-x:auto;font-family:var(--mono);
+  font-size:clamp(12px,1.15vw,18px);line-height:1.6;color:#dbe3ee}
+.note{border-left:3px solid var(--warn);background:rgba(255,209,102,.06);
+  padding:.85em 1.1em;border-radius:0 9px 9px 0;font-size:clamp(13px,1.2vw,19px);
+  color:#e4d5b0;max-width:none}
+.note b{color:var(--warn)}
+.lead{font-size:clamp(18px,2vw,30px);color:#dbe3ee;max-width:56ch}
+
+table{border-collapse:collapse;width:100%;font-size:clamp(12px,1.15vw,19px)}
+th,td{padding:.62em .7em;text-align:left;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:600;font-size:.82em;text-transform:uppercase;letter-spacing:.07em}
+td.n{font-family:var(--mono);text-align:right;white-space:nowrap}
+tr.hi td{background:rgba(91,157,255,.09)}
+td .same{color:#5f6b7d}
+
+/* the 2x2 */
+.grid2{display:grid;grid-template-columns:auto 1fr 1fr;grid-template-rows:auto 1fr 1fr;
+  gap:.7em;align-items:stretch}
+.grid2 .lbl{display:flex;align-items:center;justify-content:center;color:var(--dim);
+  font-size:clamp(11px,1vw,16px);text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+.grid2 .lbl.v{writing-mode:vertical-rl;transform:rotate(180deg)}
+.cell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:1em 1.1em}
+.cell.rlc{border-left:4px solid var(--rl)} .cell.toolc{border-left:4px solid var(--tool)}
+.cell .t{font-weight:700;font-size:clamp(14px,1.3vw,21px);margin-bottom:.15em}
+.cell .r{font-family:var(--mono);font-size:clamp(15px,1.6vw,26px);font-weight:700;margin-top:.3em}
+.cell .s{color:var(--dim);font-size:clamp(11px,1vw,15px)}
+
+img.shot{border-radius:10px;border:1px solid var(--line);display:block;max-width:100%;
+  height:auto;image-rendering:pixelated}
+.cap{color:var(--dim);font-size:clamp(11px,1.05vw,16px);margin-top:.6em;text-align:center}
+
+.chain{display:flex;align-items:center;gap:1vw;flex-wrap:wrap;margin:.4em 0}
+.chain .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:.7em 1em;font-size:clamp(12px,1.2vw,19px)}
+.chain .arw{color:var(--dim);font-size:1.4em}
+.chain .step.end{border-color:var(--bad);color:var(--bad);font-weight:700}
+
+/* chrome */
+#bar{position:fixed;bottom:0;left:0;height:2px;background:var(--rl);transition:width .25s;z-index:9}
+#ctr{position:fixed;bottom:14px;right:20px;font-family:var(--mono);font-size:13px;
+  color:var(--dim);z-index:9}
+#hint{position:fixed;bottom:14px;left:20px;font-size:12px;color:#465061;z-index:9}
+#ov{position:fixed;inset:0;background:rgba(11,14,20,.97);z-index:20;display:none;
+  grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:28px;
+  overflow-y:auto;align-content:start}
+#ov.on{display:grid}
+#ov button{background:var(--panel);border:1px solid var(--line);color:var(--dim);
+  border-radius:9px;padding:11px;text-align:left;cursor:pointer;font:inherit;font-size:12px}
+#ov button:hover{border-color:var(--rl);color:var(--ink)}
+#ov button .i{font-family:var(--mono);color:#4a5666;display:block;margin-bottom:3px}
+@media print{
+  html,body{overflow:visible;background:#fff}
+  .slide{display:flex!important;position:relative;height:100vh;page-break-after:always;
+    border-bottom:1px solid #ccc}
+  #bar,#ctr,#hint,#ov{display:none!important}
+}
+</style>
+</head>
+<body>
+<div id="deck">
+<section class="slide">
+  <h3>Reinforcement learning &middot; Tetris</h3>
+  <h1>Five agents,<br>one question.</h1>
+  <p class="lead" style="margin-top:1em">How much of "playing Tetris well" comes from
+  <b>learning</b> &mdash; and how much from the <b>action abstraction and search</b>
+  that tools provide?</p>
+  <p class="dim" style="margin-top:2em;font-size:clamp(13px,1.2vw,18px)">
+  <span class="mono">ALE/Tetris-v5</span> &nbsp;&middot;&nbsp; custom engine
+  &nbsp;&middot;&nbsp; PPO &nbsp;&middot;&nbsp; CEM</p>
+</section>
+<section class="slide divider">
+  <div class="num">01</div>
+  <h1>The game</h1>
+  <p class="dim">What <span class="mono">ALE/Tetris-v5</span> actually is, and the
+  mechanics that decide everything downstream.</p>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; the environment</h3>
+  <h2>It is an Atari 2600 ROM,<br>running under emulation.</h2>
+  <p class="lead">Not a Tetris library. A 1980s cartridge, emulated by Stella, wrapped by the
+  Arcade Learning Environment. <b>You cannot read its memory or its rules.</b></p>
+  <div class="row" style="margin-top:1.6em">
+    <div class="card col"><h3 style="margin-bottom:.6em">You are given</h3>
+      <ul style="font-size:.95em">
+        <li>a <b>screen</b> &mdash; <span class="mono">210&times;160&times;3</span> RGB</li>
+        <li>an <b>action</b> &mdash; one of five</li>
+        <li>a <b>reward</b> &mdash; one number</li>
+      </ul></div>
+    <div class="card col"><h3 style="margin-bottom:.6em">You are not given</h3>
+      <ul style="font-size:.95em">
+        <li>the board as an array</li>
+        <li>the piece identity or position</li>
+        <li>the next piece</li>
+        <li>any rule of the game</li>
+      </ul></div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; observation</h3>
+  <h2>This is the game.<br>This is what the agent sees.</h2>
+  <div class="row" style="margin-top:.5em;align-items:flex-start">
+    <div class="col" style="text-align:center">
+      <img class="shot" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeAAAAJ2CAIAAAAIYcYBAAAHUklEQVR42u3dIU7DUBjA8W/Ls0gkYleY3xFwuwK6Waqrim2Waq4wxxF2kIlJJLYJCAym7C3A2nW/nyLpS3i8sX++1LwIAAAAAAAAAACGN3MEgyuK4uuHtm0vtmZ/v+9bs3pb/cka4JfmjgBAoAE4w2z5vHQKACZoAAQaQKABEGgAgQZAoAEQaACBBkCgAQQaAIEGQKABBBoAgQYQaAAEGkCgARBoAAQaQKABEGgAgQZAoAEQaACBBkCgAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE6ZTePPKIrCZzmItm0dwg+6bn2x35XSzn4mtp+5rxDAOAk0gEADINAAAg2AQAMINAACDYBAAwg0AAININAACDQAAg0g0AAINIBAAyDQAAINgEADINAAAg2AQANMX3IEMPCXMO1Orum6tf3c4H5M0ADhFQcAAg0g0AAINIBAAyDQAAg0gEADINAAAg2AQAMg0AACDYBAAwg0AAININAACDQAAg0g0AAINIBAAyDQAAg0gEADINAAAg2AQAMINAACDYBAAwg0AAININAACDQAAg0g0AAINIBAAyDQAAINgEADINAAAg2AQAMINAACDYBAAwg0AAININAACDQAAg0g0AAINIBAAyDQAAINgEADINAAAg2AQAMINAACDYBAAwg0AAININAACDSAQAMwLskRwLC6bm0/9mOCBgivOAAQaACBBkCgARBoAIEGQKABBBoAgQYQaAAEGgCBBhBoAAQaQKABEGgABBpAoAEQaACBBkCgAQQagBFJjgD+8QuWdvZjPyZogPCKAwCBBhBoAAQaAIEGEGgABBpAoAEQaAAEGkCgARBoAIEGQKABBNoRAAg0AAININAACDSAQAMg0AAINIBAAyDQAAINgEADINAAAg2AQAMINAACDSDQAAg0AAININAACDSAQAMg0AAINIBAAyDQAAINgEADCDQAAg2AQAMINAACDSDQAAg0AAININAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg2AQAMINAACDSDQAAg0AAININAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg2AQAMINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAwg0AAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAAAg2AQAMg0AACDYBAAwg0AAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAAAg2AQAMg0AACDYBAAwg0AAINgEADCDQAAg0g0AAINIBAAyDQAAg0wLVKU/3DNtVd36Nt/e6DB0zQAAg0gEADINAAAg2AQAMg0AACDYBAAwg0AAINgEADCDQAAg0g0AAINIBAAyDQAAg0gEADEC6NPYebYQETNAACDRBecVy/ZjPre1RuP/LXAJigARBoAIEGQKABBBoAgQYQaAAEGgCBBhBoAAQaQKABEGgABBpAoAEQaACBBkCgARBoAIEGIFwam3frq5thARM0AAINEF5xXL+qqvoe1XXtnwMwQQMg0AACDYBAAwg0AAINgEADCDQAAg0g0AAINIBAAyDQAAg0gEADINAAAg2AQAMg0AACDUC4NPYcboYFTNAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg2AQAMINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAyDQAAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAwg0AAINgEADCDQAAg0g0AAINAACDSDQAAg0gEADINAAAg2AQAMg0AACDYBAA9yS5Aguo1ks+h6Vh0P+GsAEDYBAAyDQAAINgEADCDQAAg2AQAMINAACDSDQAAg0gEADINAACDSAQAMg0AACDYBAAyDQAOHSWPJufXUzLGCCBhBoAMIrjnGrHjZ9j+rjNn8NYIIGQKABEGgAgQZAoAEEGgCBBkCgAQQaAIEGEGgABBpAoAEQaAAEGkCgARBoAIEGQKABEGiAcGksebe+uhkWMEEDCDQA4RXHcJ4emr5HL8cyfw2ACRpAoAEQaACBBkCgAQQaAIEGQKABBBoAgQYQaAAEGgCBBhBoAAQaQKABEGgAgXYEAAINgEADhEtjybv11c2wgAkaQKABCK84xu1x0fQ9ej2U+WsATNAAAg2AQAMINAACDSDQAAg0AAININAACDSAQAMg0AAINIBAAyDQAAINgEADCLQjABBoAAQaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvvkE4Y12CK4whHoAAAAASUVORK5CYII=" style="max-height:46vh;margin:0 auto">
+      <div class="cap">The Atari screen &mdash; <span class="mono">210&times;160&times;3</span> RGB</div>
+    </div>
+    <div class="col" style="text-align:center">
+      <img class="shot" src="data:image/png;base64,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" style="max-height:46vh;margin:0 auto">
+      <div class="cap">What Track&nbsp;1's network is fed &mdash; <span class="mono">84&times;84</span>
+      grayscale, &times;4 stacked</div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:1.2em"><b>Why stack 4 frames?</b> One still image cannot
+  tell you which way a piece is <i>moving</i>. Stacking the last four gives the network motion.
+  Standard since the 2015 DQN Atari paper.</div>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; action space</h3>
+  <h2>Five actions. <span class="bad">No hard drop.</span></h2>
+  <pre>&gt;&gt;&gt; env.unwrapped.get_action_meanings()
+['NOOP', 'FIRE', 'RIGHT', 'LEFT', 'DOWN']        <span class="dim"># Discrete(5)</span></pre>
+  <ul style="margin-top:1em">
+    <li><b class="mono">FIRE</b> = rotate. <b>One direction only</b> &mdash; there is no counter-clockwise.</li>
+    <li><b class="mono">DOWN</b> = <b>soft</b> drop. It nudges the piece down one step.</li>
+    <li><b class="bad">There is no hard-drop action.</b> To get a piece down you wait for gravity,
+      or you hold DOWN.</li>
+  </ul>
+  <div class="note" style="margin-top:1.1em">My own custom engine <i>does</i> have <span class="mono">HARD_DROP</span>
+  &mdash; one action, piece slams down, done. <b>The Atari ROM simply does not.</b></div>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; consequence</h3>
+  <h2>So my planner presses DOWN<br>ninety times.</h2>
+  <pre><span class="dim">agents/ale/ale_tetris_agent.py:546</span>
+actions = [FIRE] * fires + [move] * moves + <b class="tool">[DOWN] * 90</b></pre>
+  <p class="lead" style="margin-top:1.2em">Rotate <i>n</i> times, shift sideways <i>n</i> times,
+  then <b>spam the soft-drop ninety times</b> to seat the piece.</p>
+  <p class="lead" style="margin-top:.6em">It looks absurd until you know there is no drop action.
+  Then it is the only thing you <i>can</i> write.</p>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; reward</h3>
+  <h2>The reward <span class="rl">is</span> lines cleared.<br>Nothing else.</h2>
+  <div class="row" style="margin-top:1.2em">
+    <div class="card col">
+      <h3 style="margin-bottom:.5em">ALE Tetris pays you for</h3>
+      <ul style="font-size:.95em"><li><b>clearing a line</b></li></ul>
+      <h3 style="margin:1.1em 0 .5em">and nothing else</h3>
+      <ul style="font-size:.95em">
+        <li><span class="dim">no points for surviving</span></li>
+        <li><span class="dim">no points for dropping</span></li>
+        <li><span class="dim">no points for placing a piece</span></li>
+      </ul>
+    </div>
+    <div class="col">
+      <p class="lead">So when my agent scores <b class="mono">37.0</b> reward, that
+      <b>literally means 37 lines.</b></p>
+      <div class="note" style="margin-top:1.2em"><b>Say "37 lines."</b> The
+      "3,700" you may see in my code is <b>my own unit</b>
+      (<span class="mono">lines &times; 100</span>) for a friendlier headline &mdash;
+      it is <b>not</b> the ROM's score.</div>
+    </div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; the consequence that defines this project</h3>
+  <h2>This is why pure RL scores <span class="bad">exactly zero</span>.</h2>
+  <div class="chain" style="margin-top:.8em">
+    <div class="step">A random policy must place<br>~10 pieces correctly in a row<br>to clear one line</div>
+    <div class="arw">&rarr;</div>
+    <div class="step">it essentially <b>never</b><br>does this by chance</div>
+    <div class="arw">&rarr;</div>
+    <div class="step">reward is <b>0 on every<br>transition</b>, for all 10M steps</div>
+  </div>
+  <div class="chain">
+    <div class="step">so the advantage estimate is <b>0</b></div>
+    <div class="arw">&rarr;</div>
+    <div class="step end">the policy gradient is <b>0</b></div>
+  </div>
+  <p class="lead" style="margin-top:1.3em"><b>PPO did not fail to learn. It had nothing to learn from.</b>
+  You cannot fix a <i>missing</i> signal by collecting more samples of it.</p>
+  <div class="note" style="margin-top:1em"><b>Verified live:</b> NOOP-only from seed 0 tops out
+  after <span class="mono">416</span> agent steps with total reward <span class="mono">0.0</span>.</div>
+</section>
+<section class="slide">
+  <h3>Part 1 &middot; three things that trip people up</h3>
+  <h2>The fine print.</h2>
+  <div class="row" style="margin-top:.4em;align-items:stretch">
+    <div class="card col"><div class="t" style="font-weight:700;margin-bottom:.4em">Frame-skip 4</div>
+      <p style="font-size:.9em">One action runs for <b>4 emulator frames</b>. So
+      <b>10M agent steps = 40M frames</b> &mdash; about <b>20%</b> of the canonical 200M-<i>frame</i>
+      Atari budget, not the 2% a naive reading suggests. <b>State the unit.</b></p></div>
+    <div class="card col"><div class="t" style="font-weight:700;margin-bottom:.4em">Sticky actions 0.25</div>
+      <p style="font-size:.9em">25% chance the emulator <b>repeats your previous action</b> instead of
+      the new one. It stops agents memorising one fixed button sequence.</p></div>
+    <div class="card col" style="border-left:4px solid var(--warn)">
+      <div class="t" style="font-weight:700;margin-bottom:.4em">&#9888; The seed does nothing</div>
+      <p style="font-size:.9em"><b>The ALE seed does not change Tetris's piece sequence.</b> Seeds
+      0/1/2/42 give a bit-identical trajectory. So sticky actions are the <b>only</b> randomness
+      in this environment &mdash; and "10 seeds" is <b>one game, ten times</b>.</p></div>
+  </div>
+</section>
+<section class="slide divider">
+  <div class="num">02</div>
+  <h1>The five tracks</h1>
+  <p class="dim">How each one was built, and exactly what differs between them.</p>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; the design</h3>
+  <h2>A 2&times;2 &mdash; plus the experiment.</h2>
+  <div class="grid2" style="margin-top:.3em;max-height:52vh">
+    <div></div>
+    <div class="lbl">Pure RL &nbsp;<span class="tag rlt">learns</span></div>
+    <div class="lbl">Tool-assisted &nbsp;<span class="tag toolt">searches</span></div>
+    <div class="lbl v">ALE</div>
+    <div class="cell rlc"><div class="t">Track 1</div><div class="s">PPO on pixels</div>
+      <div class="r bad">0 lines</div></div>
+    <div class="cell toolc"><div class="t">Track 2</div><div class="s">decode + search + CEM</div>
+      <div class="r tool">37 lines</div></div>
+    <div class="lbl v">Custom engine</div>
+    <div class="cell rlc"><div class="t">Track 3</div><div class="s">PPO, keypress actions</div>
+      <div class="r rl">1.04 lines</div></div>
+    <div class="cell toolc"><div class="t">Track 4</div><div class="s">features + lookahead + CEM</div>
+      <div class="r tool">198.1 lines</div></div>
+  </div>
+  <div class="note" style="margin-top:1em"><b>Track 5</b> is not a fifth corner of the grid. It is
+  <b>Track 3 with exactly one variable changed</b> &mdash; the action space &mdash; so the 2&times;2
+  no longer has to <i>guess</i> what causes the gap. <span class="rl">&rarr; 5.60 lines</span></div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; motivation</h3>
+  <h2>Why five tracks, honestly.</h2>
+  <ul style="margin-top:.4em">
+    <li><b>Pure RL on ALE Tetris scores zero &mdash; and I needed to know whether that was my
+      bug or the problem's nature.</b> The only way to tell is to change one thing at a time.
+      Keep the method, change the environment (Track 3) &rarr; it starts clearing lines. Keep the
+      environment, change the method (Track 2) &rarr; it scores. That isolates the cause.</li>
+    <li><b>I did not know what was allowed.</b> "Make an RL agent" could mean strictly model-free
+      learning, or it could permit search, planning and hand-authored features &mdash; a lot of
+      published "RL Tetris" does exactly that. Rather than guess and risk submitting against the
+      wrong interpretation, I built <b>both</b>, and drew an enforced boundary between them
+      (<span class="mono">AGENTS.md</span> + tests).</li>
+    <li><b>It turns a zero into a finding.</b> "PPO got 0" is a shrug. "PPO got 0 on pixels,
+      1.04 lines on a structured observation, and a planner on the <i>same engine and the same
+      laptop</i> got ~190&times; more" is a result.</li>
+  </ul>
+  <div class="note" style="margin-top:.9em"><b>Be honest about the ordering:</b> this began as a
+  <i>hedge</i> against an ambiguous brief, and <i>became</i> a controlled comparison. It was not a
+  grand design from day one.</div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; track 1 &nbsp;<span class="tag rlt">pure RL</span> &nbsp;<span class="dim">ALE</span></h3>
+  <h2>PPO, straight onto the pixels.</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <dl class="kv">
+        <dt>Algorithm</dt><dd>PPO (Stable-Baselines3), CnnPolicy</dd>
+        <dt>Input</dt><dd>84&times;84&times;4 grayscale frames</dd>
+        <dt>Actions</dt><dd>the 5 ALE actions</dd>
+        <dt>Reward</dt><dd>the ROM's &mdash; lines cleared</dd>
+        <dt>Budget</dt><dd>10M agent steps (= 40M frames)</dd>
+        <dt>Result</dt><dd class="bad">0 lines &mdash; mean &amp; max native reward 0.0</dd>
+      </dl>
+    </div>
+    <div class="col">
+      <p><b>What it may not do:</b> decode the board, enumerate placements, use any model of Tetris,
+      or search. It sees pixels and presses buttons. That is the whole point &mdash; it is the
+      <b>control</b>.</p>
+      <div class="note" style="margin-top:1em"><b>Zero is the result, not a bug.</b> The video shows
+      the stack building until it tops out. See the causal chain in Part 1.</div>
+    </div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; track 2 &nbsp;<span class="tag toolt">tool-assisted</span> &nbsp;<span class="dim">ALE</span></h3>
+  <h2>Give it eyes and a plan.</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <dl class="kv">
+        <dt>Method</dt><dd>decode &rarr; enumerate &rarr; score &rarr; execute</dd>
+        <dt>Vision</dt><dd>sample the centre of all 200 cells<br>&rarr; a 20&times;10 binary grid</dd>
+        <dt>Policy</dt><dd>9 hand-authored features &middot; dot product</dd>
+        <dt>Tuning</dt><dd>CEM over 9 weights</dd>
+        <dt>Lookahead</dt><dd class="dim">none &mdash; depth-1 greedy</dd>
+        <dt>Result</dt><dd class="tool">37 lines, 259 decisions</dd>
+      </dl>
+    </div>
+    <div class="col">
+      <pre style="font-size:clamp(11px,1vw,15px)"><span class="dim">decode_board() &mdash; ale_tetris_agent.py:81</span>
+med     = median(3&times;3 patch at each cell)
+is_gray = |med - BG_GRAY| &lt;= 16
+is_black= med &lt;= 12
+<b>return ~(is_gray | is_black)</b>   <span class="dim"># filled?</span></pre>
+      <p style="margin-top:.9em;font-size:.95em">It reconstructs the same 20&times;10 grid my custom
+      engine uses &mdash; which is what lets <b>one planner drive both environments</b>.</p>
+    </div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; track 3 &nbsp;<span class="tag rlt">pure RL</span> &nbsp;<span class="dim">custom engine</span></h3>
+  <h2>Same PPO. A reward it can actually feel.</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <dl class="kv">
+        <dt>Algorithm</dt><dd>PPO, MlpPolicy 2&times;256</dd>
+        <dt>Input</dt><dd><b>417 floats</b></dd>
+        <dt></dt><dd class="dim">200 board + 200 falling piece<br>+ 7 + 7 one-hots + 3 position</dd>
+        <dt>Actions</dt><dd><b>Discrete(7)</b> &mdash; one <b>keypress</b><br>
+          <span class="dim">left / right / rotate / drop</span></dd>
+        <dt>Reward</dt><dd>10&times;cleared&sup2; + 0.25/piece &minus; 10</dd>
+        <dt>Budget</dt><dd>100M steps &middot; ~7.8 h</dd>
+        <dt>Result</dt><dd class="rl">1.04 lines &mdash; max 3, 25 deterministic episodes</dd>
+      </dl>
+    </div>
+    <div class="col">
+      <p><b>The +0.25 per piece is the whole trick.</b> It is a <i>dense</i> survival signal, so the
+      gradient is not zero everywhere. Track 1 had no such term available &mdash; ALE's reward is
+      fixed.</p>
+      <div class="note" style="margin-top:1em"><b>Gravity is the difficulty.</b> Every keypress also
+      drops the piece one row, so the agent gets only <b>~9 actions per piece</b> &mdash; and the
+      reward arrives dozens of actions after the decision that earned it.</div>
+    </div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; track 4 &nbsp;<span class="tag toolt">tool-assisted</span> &nbsp;<span class="dim">custom engine</span></h3>
+  <h2>Enumerate, score, look ahead.</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <dl class="kv">
+        <dt>Method</dt><dd>enumerate all ~34 placements</dd>
+        <dt>Policy</dt><dd><b>10 Dellacherie features</b> &middot; dot product</dd>
+        <dt></dt><dd class="dim">holes, heights, bumpiness, wells,<br>transitions, landing height &hellip;</dd>
+        <dt>Search</dt><dd><b>depth-2</b> over the real queue<br><span class="dim">top 4 candidates, future &times;0.35</span></dd>
+        <dt>Tuning</dt><dd>CEM over <b>10 weights</b></dd>
+        <dt>Result</dt><dd class="tool">198.1 lines &mdash; of a 200-line ceiling at a 500-piece cap</dd>
+      </dl>
+    </div>
+    <div class="col">
+      <pre style="font-size:clamp(11px,1vw,16px)"><span class="dim">the entire policy &mdash; tetris_custom_agent.py:20</span>
+<b>np.dot(weights, placement_features(p))</b></pre>
+      <p style="margin-top:.8em;font-size:.95em">Ten multiplications and an addition, per candidate.
+      <b>No neural network anywhere in this track.</b></p>
+      <div class="note" style="margin-top:.9em"><b>It never tops out.</b> Run uncapped it reached
+      <b>10,000 pieces / 3,997 lines</b> and was still alive &mdash; holding ~0.4 lines per piece, the
+      theoretical maximum.</div>
+    </div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; track 5 &nbsp;<span class="tag rlt">pure RL</span> &nbsp;<span class="dim">custom engine</span></h3>
+  <h2>Track 3 &mdash; with <span class="rl">one</span> thing changed.</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <dl class="kv">
+        <dt>Algorithm</dt><dd>PPO, MlpPolicy 2&times;256 <span class="good">&mdash; identical</span></dd>
+        <dt>Reward</dt><dd>10&times;cleared&sup2; + 0.25/piece &minus; 10 <span class="good">&mdash; identical</span></dd>
+        <dt>Hyperparams</dt><dd>lr 3e-4, &gamma; .995, seed 7 <span class="good">&mdash; identical</span></dd>
+        <dt>Input</dt><dd><b>214 floats</b> &mdash; raw board + 2 one-hots<br>
+          <span class="bad">no features. none.</span></dd>
+        <dt>Lookahead</dt><dd class="bad">none</dd>
+        <dt>Actions</dt><dd><b class="rl">Discrete(40)</b> &mdash; 4 rotations &times; 10 columns<br>
+          <span class="rl">one action = one whole piece placed</span></dd>
+        <dt>Budget</dt><dd>12M steps &middot; <b>2.0 h</b></dd>
+        <dt>Result</dt><dd class="rl">5.60 lines &mdash; max 9, min 3, 25 deterministic episodes</dd>
+      </dl>
+    </div>
+    <div class="col">
+      <p>It must still <b>learn what a bad board looks like</b> from raw cells &mdash; it is handed
+      no holes, no heights, no bumpiness.</p>
+      <div class="note" style="margin-top:1em"><b>Note it sees <i>less</i> than Track 3</b> (214 vs 417
+      inputs) and does 5.4&times; better. Those extra 203 numbers describe a problem &mdash; piloting a
+      piece mid-flight &mdash; that Track 5 does not have to solve.</div>
+    </div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; the whole project on one slide</h3>
+  <h2>What actually differs.</h2>
+  <table style="margin-top:.2em">
+    <tr><th></th><th>Env</th><th>Learns?</th><th>Action</th><th>Hand<br>features</th>
+      <th>Look-<br>ahead</th><th>Budget</th><th style="text-align:right">Lines</th></tr>
+    <tr><td><b class="rl">Track 1</b></td><td>ALE</td><td class="rl">yes &mdash; PPO</td>
+      <td>joystick</td><td class="bad">no</td><td class="bad">no</td><td class="n">10M steps</td>
+      <td class="n bad">0</td></tr>
+    <tr><td><b class="tool">Track 2</b></td><td>ALE</td><td class="dim">no &mdash; CEM</td>
+      <td>placement&rarr;joystick</td><td class="good">yes (9)</td><td class="bad">no</td>
+      <td class="n">CEM gens</td><td class="n tool">37</td></tr>
+    <tr class="hi"><td><b class="rl">Track 3</b></td><td>custom</td><td class="rl">yes &mdash; PPO</td>
+      <td><b>keypress</b></td><td class="bad">no</td><td class="bad">no</td>
+      <td class="n">100M steps</td><td class="n rl">1.04</td></tr>
+    <tr class="hi"><td><b class="rl">Track 5</b></td><td><span class="same">custom</span></td>
+      <td><span class="same">yes &mdash; PPO</span></td>
+      <td><b class="rl">placement</b></td><td><span class="same">no</span></td>
+      <td><span class="same">no</span></td><td class="n">12M steps</td>
+      <td class="n rl"><b>5.60</b></td></tr>
+    <tr><td><b class="tool">Track 4</b></td><td>custom</td><td class="dim">no &mdash; CEM</td>
+      <td>placement</td><td class="good">yes (10)</td><td class="good">yes (2-ply)</td>
+      <td class="n">CEM gens</td><td class="n tool">198.1</td></tr>
+  </table>
+  <div class="note" style="margin-top:1.1em">Read the two highlighted rows. <b>Every cell is the
+  same except one</b> &mdash; keypress becomes placement. That single change is worth
+  <b class="rl">5.4&times;</b>.</div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; the controlled experiment</h3>
+  <h2>Same seed. Same algorithm.<br>Different action space.</h2>
+  <div class="row" style="margin-top:.3em;align-items:flex-start">
+    <div class="col" style="text-align:center">
+      <img class="shot" src="data:image/png;base64,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" style="max-height:40vh;margin:0 auto">
+      <div class="cap"><b class="rl">Track 3</b> &mdash; keypress actions<br>
+        seed 1002: <b>2 lines</b>, 31 pieces</div>
+    </div>
+    <div class="col" style="text-align:center">
+      <img class="shot" src="data:image/png;base64,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" style="max-height:40vh;margin:0 auto">
+      <div class="cap"><b class="rl">Track 5</b> &mdash; placement actions<br>
+        seed 1002: <b>8 lines</b>, 46 pieces</div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:1em"><b>The comparison is fair on <i>experience</i>, not just
+  step count.</b> A Track 3 step is one keypress; a Track 5 step is a whole piece. Track 3 spends a
+  <b>measured 9.11 keypresses per piece</b>, so its 100M steps &asymp; <b>11.0M pieces</b> against
+  Track 5's <b>12.0M</b> &mdash; matched within 9%, in a quarter of the wall-clock.</div>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; what is still different</h3>
+  <h2>Track 5 &rarr; Track 4: three more changes.</h2>
+  <div class="row" style="margin-top:.5em;align-items:stretch">
+    <div class="card col toolc"><div class="t" style="font-weight:700;margin-bottom:.4em">1. Hand-authored features</div>
+      <p style="font-size:.92em">Track 4 is <i>handed</i> holes, heights, bumpiness, wells, transitions,
+      landing height. Track 5 must <b>learn all of it from raw cells</b>.</p></div>
+    <div class="card col toolc"><div class="t" style="font-weight:700;margin-bottom:.4em">2. Lookahead</div>
+      <p style="font-size:.92em">Track 4 clones the engine and searches <b>2 pieces deep</b> over the real
+      queue. Track 5 sees the same one-piece preview and <b>cannot search at all</b>.</p></div>
+    <div class="card col toolc"><div class="t" style="font-weight:700;margin-bottom:.4em">3. Optimizer</div>
+      <p style="font-size:.92em">Track 4 fits <b>10 weights</b> with CEM. Track 5 fits <b>~150k network
+      weights</b> with PPO from a scalar reward.</p></div>
+  </div>
+  <p class="lead" style="margin-top:1.4em">Track 5 closes the action-space part of the gap. <b>These
+  three are what remain</b> &mdash; and Part 3 shows they are worth <b class="tool">97.7%</b> of it.</p>
+</section>
+<section class="slide">
+  <h3>Part 2 &middot; the question I will be asked</h3>
+  <h2>"Are all five reinforcement learning?"</h2>
+  <p class="lead"><b>No &mdash; and I will concede that before you ask.</b></p>
+  <div class="row" style="margin-top:1.2em;align-items:stretch">
+    <div class="card col rlc"><div class="t" style="font-weight:700;margin-bottom:.5em">
+      <span class="tag rlt">RL</span> &nbsp;Tracks 1, 3, 5</div>
+      <p style="font-size:.93em">PPO. A <b>policy network</b> and a <b>value network</b>. Learns from
+      the reward at <b>every step</b> via the policy gradient and an advantage estimate.
+      <b>This is reinforcement learning.</b></p></div>
+    <div class="card col toolc"><div class="t" style="font-weight:700;margin-bottom:.5em">
+      <span class="tag toolt">not RL</span> &nbsp;Tracks 2, 4</div>
+      <p style="font-size:.93em">CEM. <b>No value function, no TD error, no policy gradient.</b> It
+      collapses an entire episode into <b>one scalar</b> and never asks which move caused what. It is
+      <b>derivative-free policy search</b> &mdash; black-box optimisation.</p></div>
+  </div>
+  <div class="note" style="margin-top:1.1em"><b>Sutton &amp; Barto, &sect;1.1</b> exclude evolutionary
+  methods for exactly this reason: <i>"they do not notice which states an individual passes through
+  during its lifetime, or which actions it selects."</i> &mdash; Structurally, Track 4 is a small
+  <b>chess engine</b>: hand-crafted eval + shallow search + tuned coefficients.</div>
+</section>
+<section class="slide divider">
+  <div class="num">03</div>
+  <h1>The results</h1>
+  <p class="dim">Every number below is read straight from the frozen evaluation manifests.</p>
+</section>
+<section class="slide">
+  <h3>Part 3 &middot; best performance per track</h3>
+  <h2>Where each one landed.</h2>
+  <table style="margin-top:.2em">
+    <tr><th></th><th>Env</th><th>Method</th><th style="text-align:right">Result</th><th>Evidence &amp; caveat</th></tr>
+    <tr><td><b class="rl">1</b></td><td>ALE</td><td>PPO on pixels</td>
+      <td class="n bad" style="font-size:1.35em"><b>0</b> lines</td>
+      <td>25 eps. <b>That is the result</b>, not a bug &mdash; zero reward &rArr; zero gradient.</td></tr>
+    <tr><td><b class="tool">2</b></td><td>ALE</td><td>decode + search + CEM</td>
+      <td class="n tool" style="font-size:1.35em"><b>37</b> lines</td>
+      <td>259 decisions. <span class="warn">&#9888; identical on all 10 seeds because the
+      ALE seed does not vary the pieces &mdash; effective <b>N&nbsp;=&nbsp;1</b>.</span></td></tr>
+    <tr><td><b class="rl">3</b></td><td>custom</td><td>PPO, keypress</td>
+      <td class="n rl" style="font-size:1.35em"><b>1.04</b> lines</td>
+      <td>max 3, 25 deterministic episodes; survives 28.6 pieces.</td></tr>
+    <tr><td><b class="rl">5</b></td><td>custom</td><td>PPO, <b>placement</b></td>
+      <td class="n rl" style="font-size:1.35em"><b>5.60</b> lines</td>
+      <td>max 9, min 3, 25 deterministic episodes; survives 47.6. <b class="good">Clears &ge;1 line on every seed.</b>
+      <span class="warn">&#9888; not converged &rArr; a lower bound.</span></td></tr>
+    <tr><td><b class="tool">4</b></td><td>custom</td><td>features + 2-ply + CEM</td>
+      <td class="n tool" style="font-size:1.35em"><b>198.1</b> lines</td>
+      <td>of a 200-line ceiling at a 500-piece cap. <span class="warn">&#9888; the 200 is <b>the cap</b>, not the agent &mdash; uncapped it
+      never tops out.</span></td></tr>
+  </table>
+</section>
+<section class="slide">
+  <h3>Part 3 &middot; visually</h3>
+  <h2>Lines cleared, by environment.</h2>
+  <svg viewBox="0 0 1000 380" style="width:100%;max-height:52vh;margin-top:.3em">
+    <line x1="60" y1="330" x2="960" y2="330" stroke="#232c3b" stroke-width="1"/>
+    <text x="60" y="24" fill="#8b97ab" font-size="14" font-family="monospace">log scale &mdash; the range is 0 to 198</text>
+
+    <!-- ALE group -->
+    <rect x="95"  y="330" width="90" height="2" fill="#5b9dff" opacity=".85" rx="3"/>
+    <text x="140" y="318" fill="#ff6b6b" font-size="26" font-weight="700" text-anchor="middle" font-family="monospace">0</text>
+    <text x="140" y="352" fill="#8b97ab" font-size="15" text-anchor="middle">Track 1</text>
+    <text x="140" y="370" fill="#4a5666" font-size="12" text-anchor="middle">pure RL</text>
+
+    <rect x="215" y="144" width="90" height="186" fill="#ffb454" opacity=".9" rx="3"/>
+    <text x="260" y="132" fill="#ffb454" font-size="26" font-weight="700" text-anchor="middle" font-family="monospace">37</text>
+    <text x="260" y="352" fill="#8b97ab" font-size="15" text-anchor="middle">Track 2</text>
+    <text x="260" y="370" fill="#4a5666" font-size="12" text-anchor="middle">tools</text>
+    <text x="200" y="26" fill="#5f6b7d" font-size="15" text-anchor="middle" letter-spacing="2">ALE</text>
+
+    <line x1="345" y1="40" x2="345" y2="330" stroke="#232c3b" stroke-width="1" stroke-dasharray="4 4"/>
+
+    <!-- custom group -->
+    <rect x="400" y="294" width="90" height="36" fill="#5b9dff" opacity=".85" rx="3"/>
+    <text x="445" y="282" fill="#5b9dff" font-size="26" font-weight="700" text-anchor="middle" font-family="monospace">1.04</text>
+    <text x="445" y="352" fill="#8b97ab" font-size="15" text-anchor="middle">Track 3</text>
+    <text x="445" y="370" fill="#4a5666" font-size="12" text-anchor="middle">keypress</text>
+
+    <rect x="520" y="234" width="90" height="96" fill="#5b9dff" rx="3"/>
+    <text x="565" y="222" fill="#5b9dff" font-size="26" font-weight="700" text-anchor="middle" font-family="monospace">5.60</text>
+    <text x="565" y="352" fill="#e8edf5" font-size="15" text-anchor="middle" font-weight="600">Track 5</text>
+    <text x="565" y="370" fill="#4a5666" font-size="12" text-anchor="middle">placement</text>
+
+    <rect x="640" y="60" width="90" height="270" fill="#ffb454" opacity=".9" rx="3"/>
+    <text x="685" y="48" fill="#ffb454" font-size="26" font-weight="700" text-anchor="middle" font-family="monospace">198.1</text>
+    <text x="685" y="352" fill="#8b97ab" font-size="15" text-anchor="middle">Track 4</text>
+    <text x="685" y="370" fill="#4a5666" font-size="12" text-anchor="middle">tools</text>
+    <text x="565" y="26" fill="#5f6b7d" font-size="15" text-anchor="middle" letter-spacing="2">CUSTOM ENGINE</text>
+
+    <path d="M 490 254 L 555 194"
+      stroke="#5b9dff" stroke-width="2" fill="none" marker-end="url(#a)" opacity=".8"/>
+    <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L7,3 z" fill="#5b9dff"/></marker></defs>
+    <text x="522" y="184" fill="#5b9dff" font-size="15" text-anchor="middle" font-weight="700">5.4&times;</text>
+  </svg>
+  <div class="note" style="margin-top:.3em"><b>&#9888; Do not compare across the divider.</b> ALE and my
+  custom engine are <b>different games</b> with different mechanics. Lines are only comparable
+  <i>within</i> an environment.</div>
+</section>
+<section class="slide">
+  <h3>Part 3 &middot; the decomposition</h3>
+  <h2>So what actually carries Tetris?</h2>
+  <div class="chain" style="margin-top:.6em">
+    <div class="step"><span class="dim">Track 3</span><br><b class="rl" style="font-size:1.5em">1.04</b> lines
+      <br><span class="dim" style="font-size:.85em">PPO, keypress</span></div>
+    <div class="arw">&rarr;</div>
+    <div class="step" style="border-color:var(--rl)"><span class="rl">change the action space</span><br>
+      <b class="rl" style="font-size:1.5em">5.60</b> lines
+      <br><span class="dim" style="font-size:.85em">Track 5 &mdash; nothing else changed</span></div>
+    <div class="arw">&rarr;</div>
+    <div class="step" style="border-color:var(--tool)"><span class="tool">+ features, lookahead, CEM</span><br>
+      <b class="tool" style="font-size:1.5em">198.1</b> lines
+      <br><span class="dim" style="font-size:.85em">Track 4</span></div>
+  </div>
+  <div class="row" style="margin-top:1.6em">
+    <div class="card col rlc"><div class="dim" style="font-size:.9em">The action abstraction is worth</div>
+      <div class="big rl">5.4&times;</div>
+      <div class="dim" style="font-size:.9em;margin-top:.3em">&hellip;but it closes only
+      <b class="rl">2.3%</b> of the Track&nbsp;3 &rarr; Track&nbsp;4 gap.</div></div>
+    <div class="card col toolc"><div class="dim" style="font-size:.9em">Hand features + lookahead + CEM carry</div>
+      <div class="big tool">97.7%</div>
+      <div class="dim" style="font-size:.9em;margin-top:.3em">of the remaining distance.</div></div>
+  </div>
+</section>
+<section class="slide">
+  <h3>Part 3 &middot; the finding</h3>
+  <h2>I was wrong,<br>and I ran the experiment that proved it.</h2>
+  <p class="lead" style="margin-top:.6em">My report originally claimed the <b>action abstraction</b> was
+  the dominant variable &mdash; reasoning from the literature, where essentially every strong RL-Tetris
+  result uses placement actions.</p>
+  <p class="lead" style="margin-top:.9em"><b>Track 5 tested that claim on my own engine and refuted
+  it.</b> The abstraction is real &mdash; <b class="rl">5.4&times;</b>, at matched experience, in a
+  quarter of the wall-clock &mdash; but it is <b>necessary, not sufficient</b>. It closes
+  <b class="rl">2.3%</b> of the gap. The hand-authored features and the search carry the rest.</p>
+  <div class="note" style="margin-top:1.3em"><b>The caveat I have to state myself:</b> Track 5's learning
+  curve <b>had not converged</b> &mdash; <span class="mono">ep_rew_mean</span> was still climbing 60 &rarr; 75
+  over the final 4M steps. So <b>5.60 is a lower bound, not a ceiling.</b> I have shown the action space is
+  not <i>sufficient at this compute budget</i>. I have <b>not</b> shown hand-authored features are
+  necessary in principle. <span class="dim">(Track 3, by contrast, <i>plateaued</i> at 36M of its 100M steps.)</span></div>
+</section>
+<section class="slide">
+  <h3>Part 3 &middot; receipts</h3>
+  <h2>Four things I will not let you<br>catch me on.</h2>
+  <ul style="margin-top:.2em">
+    <li><b>"Score 3,700" is my own unit, not the ROM's.</b> ALE Tetris's native reward <i>is</i> lines
+      cleared &mdash; my agent gets 37.0 reward. If you ask what I scored, the answer is
+      <b class="tool">37 lines</b>.</li>
+    <li><b>My "10 seeds" for Track 2 are one game, ten times.</b> The ALE seed does not change the piece
+      sequence &mdash; I verified it. The zero variance is an <b>artifact</b>, not robustness. Effective
+      <b>N&nbsp;=&nbsp;1</b>. <span class="dim">(What <i>is</i> genuine: it still clears 37 with sticky
+      actions at 0.25, because the planner re-reads the board every piece.)</span></li>
+    <li><b>Track 4's "200-line ceiling" is my piece cap, not the agent.</b> 500 pieces &times; 4 cells
+      &divide; 10 columns = 200. Uncapped it <b>does not top out</b> &mdash; 10,000 pieces, 3,997 lines,
+      still alive. Read its score as <span class="mono">&asymp; 0.4 &times; cap</span>.</li>
+    <li><b>Track 5 had not converged</b>, so <b class="rl">5.60</b> is a floor, not a ceiling.</li>
+  </ul>
+  <div class="note" style="margin-top:.9em">Scores are <b>not comparable across tracks</b> &mdash; Track 3's
+  includes drop points, Track 4's does not, Tracks 1&ndash;2 use my lines&times;100 convention.
+  <b>Compare lines, within an environment.</b></div>
+</section>
+<section class="slide">
+  <h3>Part 3 &middot; what I would do next</h3>
+  <h2>Two experiments, in order.</h2>
+  <div class="row" style="margin-top:.6em;align-items:stretch">
+    <div class="card col rlc">
+      <div class="t" style="font-weight:700;font-size:1.15em;margin-bottom:.5em">1. Run Track 5 to convergence</div>
+      <p style="font-size:.95em">It was <b>still improving</b> when its 12M-step budget ran out. 50&ndash;100M
+      steps (~8&ndash;16 h at the measured 1,664 steps/s) would find the <b>actual ceiling</b> of the action
+      abstraction on its own. Right now I only have a floor.</p>
+    </div>
+    <div class="card col toolc">
+      <div class="t" style="font-weight:700;font-size:1.15em;margin-bottom:.5em">2. A features-only ablation</div>
+      <p style="font-size:.95em">Track 5 isolated the <b>action space</b>. Nothing isolated the
+      <b>features</b>. Feed the 10 Dellacherie features to Track 5's PPO &mdash; still no search &mdash; and
+      the remaining <b>97.7%</b> splits into "better state representation" vs "lookahead +
+      CEM". That would <b>fully decompose the 190&times;</b>.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" style="justify-content:center">
+  <h3>In one line</h3>
+  <h1 style="font-family:var(--mono);font-size:clamp(26px,4.6vw,68px);letter-spacing:-.02em">
+    <span class="bad">0</span>
+    <span class="dim">&rarr;</span>
+    <span class="rl">1.04</span>
+    <span class="dim">&rarr;</span>
+    <span class="rl">5.60</span>
+    <span class="dim">&rarr;</span>
+    <span class="tool">198.1</span>
+  </h1>
+  <p class="lead" style="margin-top:1.3em">
+    Pixels to a structured observation with a dense reward: <b>the signal appears</b>.<br>
+    Keypress to placement &mdash; <b>the one controlled change</b>: <b class="rl">5.4&times;</b>,
+    but only <b class="rl">2.3%</b> of the gap.<br>
+    Hand-authored features, lookahead and CEM: <b class="tool">everything else</b>.
+  </p>
+  <p class="dim" style="margin-top:2.2em;font-size:clamp(13px,1.2vw,18px)">
+    <span class="mono">docs/REPORT.md</span> &middot;
+    <span class="mono">docs/QA_CODE_WALKTHROUGH.md</span> &middot;
+    <span class="mono">python artifacts/best_plays/live_play.py</span>
+  </p>
+</section>
+</div>
+<div id="bar"></div><div id="ctr"></div>
+<div id="hint">&larr; &rarr; to move &middot; Esc for overview</div>
+<div id="ov"></div>
+<script>
+const S=[...document.querySelectorAll('.slide')];let i=0;
+const bar=document.getElementById('bar'),ctr=document.getElementById('ctr'),ov=document.getElementById('ov');
+function go(n){i=Math.max(0,Math.min(S.length-1,n));S.forEach((s,k)=>s.classList.toggle('on',k===i));
+  bar.style.width=((i+1)/S.length*100)+'%';ctr.textContent=(i+1)+' / '+S.length;
+  location.hash=i+1;}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ov.classList.toggle('on');return;}
+  if(ov.classList.contains('on')){return;}
+  if(['ArrowRight','ArrowDown',' ','PageDown','n'].includes(e.key)){e.preventDefault();go(i+1);}
+  if(['ArrowLeft','ArrowUp','PageUp','p'].includes(e.key)){e.preventDefault();go(i-1);}
+  if(e.key==='Home')go(0); if(e.key==='End')go(S.length-1);
+});
+document.getElementById('deck').addEventListener('click',e=>{
+  if(ov.classList.contains('on'))return;
+  go(e.clientX < innerWidth*0.22 ? i-1 : i+1);
+});
+S.forEach((s,k)=>{const h=s.querySelector('h1,h2');const b=document.createElement('button');
+  b.innerHTML='<span class="i">'+(k+1)+'</span>'+(h?h.textContent.slice(0,58):'');
+  b.onclick=()=>{go(k);ov.classList.remove('on');};ov.appendChild(b);});
+go(parseInt(location.hash.slice(1))-1 || 0);
+</script>
+</body>
+</html>
