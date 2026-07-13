@@ -46,7 +46,18 @@ sign of maturity, not weakness.
 
 ---
 
-## 1. Game mechanics — your engine
+## 1. Game mechanics — your custom engine (Tracks 3, 4, 5)
+
+> **Know which track runs on which game. Do not mix these up in the room — the whole
+> 2×2 design collapses if you do.**
+>
+> | Track | Environment |
+> | --- | --- |
+> | **1, 2** | **ALE `ALE/Tetris-v5`** — the Atari 2600 ROM. Mechanics in **§1B**. |
+> | **3, 4, 5** | **Your custom engine** — `engine.py`. Mechanics in this section. |
+>
+> Track 5 is a *controlled* comparison against Track 3 **only because they share the
+> custom engine.** If they were different games, it would prove nothing.
 
 **File: `packages/tetris_env/tetris_env/engine.py`.** You wrote this. It is a
 standard "guideline" Tetris.
@@ -178,6 +189,123 @@ bottom, zero everything above.
 
 **Top-out** happens two ways: `spawn()` (line 181) creates a piece and it immediately
 collides → game over; or `_lock_piece` locks a cell above the board.
+
+---
+
+## 1B. Game mechanics — ALE Tetris (Tracks 1 and 2)
+
+**This is a different game, and you did not write it.** `ALE/Tetris-v5` is an
+Atari 2600 ROM running under emulation (Stella, via the Arcade Learning
+Environment). You cannot read its internals — the only things you get are **the
+screen, an action, and a reward.** Everything below is verified from the live
+environment, not from memory.
+
+### The interface
+
+```python
+# agents/ale/env.py:19-26
+gym.make("ALE/Tetris-v5",
+         obs_type="rgb",                    # 210 x 160 x 3 uint8 screen
+         repeat_action_probability=sticky,  # sticky actions
+         frameskip=4,
+         full_action_space=False)           # -> minimal action set
+```
+
+| | ALE Tetris | Your engine |
+| --- | --- | --- |
+| **Observation** | `210 × 160 × 3` RGB **screen** | structured board arrays |
+| **Actions** | **5** | 7 |
+| **Reward** | **lines cleared, nothing else** | shaped (see §2) |
+| **Playfield** | 20 × 10 (measured by your decoder) | 20 × 10 visible |
+
+### The action set — and the thing that surprises people
+
+```
+['NOOP', 'FIRE', 'RIGHT', 'LEFT', 'DOWN']     # Discrete(5)
+```
+
+- **`FIRE` = rotate.** One direction only. There is no counter-clockwise rotate.
+- **`DOWN` = soft drop.** It nudges the piece down one step.
+- **There is no hard drop.** This is the big one. Your custom engine has
+  `HARD_DROP` — one action, piece slams to the bottom, done. **ALE has no such
+  action.** To get a piece down you must either wait for gravity or hold `DOWN`
+  repeatedly.
+
+That is not a theoretical point — it's visible in your own Track 2 code:
+
+```python
+# ale_tetris_agent.py:546
+actions = [FIRE] * fires + [move] * moves + [DOWN] * 90
+```
+
+> **Rotate a few times, shift sideways a few times, then press DOWN ninety times.**
+> That is how Track 2 executes one placement, and it's a direct consequence of the
+> ROM having no hard-drop action.
+
+### The reward — and why Track 1 scores exactly zero
+
+**ALE Tetris's native reward *is* the number of lines cleared.** Nothing else. No
+points for surviving, none for dropping, none for placing a piece. Your agent's
+reward of `37.0` literally means **37 lines**.
+
+This is the single most important mechanical fact in your whole project, because it
+is *why Track 1 gets 0 and it isn't PPO's fault*:
+
+- To clear one line, a random policy must place ~10 pieces correctly in a row.
+- It essentially never does this by chance.
+- So the reward is **0 on every single transition for the entire 10M steps.**
+- Zero reward → zero advantage → **zero policy gradient.**
+
+PPO didn't fail to learn. **It had nothing to learn from.** You cannot fix a
+*missing* signal by collecting more samples of it. Your custom engine exists
+precisely to inject a denser reward (`+0.25` per piece) so a gradient exists at all —
+and Track 3 immediately escapes zero. That contrast *is* your experiment.
+
+*(Sanity check, run live: NOOP-only from seed 0 tops out after 416 agent steps with
+total reward `0.0`. Gravity does all the work, nothing clears.)*
+
+### Frame-skip 4
+
+The agent acts once, and the emulator runs that action for **4 frames**. So "10M
+agent steps" = **40M emulator frames**. Say the unit out loud — the canonical Atari
+benchmark is 200M *frames* (= 50M agent steps), so your budget was ~20% of it, not
+the ~2% a naive "10M vs 200M" reading suggests. He may well test you on this.
+
+### Sticky actions
+
+`repeat_action_probability=0.25`: with 25% chance the emulator **ignores your new
+action and repeats the previous one** (Machado et al. 2018). It exists to stop agents
+memorising one fixed button sequence — it forces genuine responsiveness to the screen.
+
+**And it matters more here than anywhere else in your project, for a reason you must
+volunteer:** you verified that **the ALE seed does not change Tetris's piece
+sequence** — seeds 0, 1, 2, 42 all produce a bit-identical trajectory. The ROM's piece
+generator isn't driven by ALE's seed. So sticky actions are the **only** source of
+randomness in that environment, and your "10 seeds → 37 lines every time" is
+**one game played ten times**, not ten independent samples. See `QA_PREP.md` §6.2.
+
+### What ALE does *not* give you
+
+- **No 7-bag guarantee.** Your engine's `_fill_queue` shuffles all seven pieces so you
+  can't be starved. The ROM has its own generator and you don't control it.
+- **No next-piece preview available to your planner.** Track 2 decodes only the
+  playfield, so it is **depth-1 greedy** — it scores the current piece's placements and
+  picks the best. Track 4, on the custom engine, reads the real queue and searches
+  **2 ply**. If he asks why Track 2 is so much weaker than Track 4, this is a large
+  part of the answer (along with 5 clumsy actions vs a clean placement commit).
+- **No board array.** Track 2 has to *reconstruct* the board from pixels — that's
+  `decode_board` (§5), sampling the centre of each of the 200 cells and asking "is
+  this neither background-grey nor black?"
+
+### The one-paragraph version, if he asks "how does the Atari game work?"
+
+> It's the Atari 2600 ROM under emulation, so I only get the 210×160 screen, five
+> actions — NOOP, FIRE to rotate, LEFT, RIGHT, and DOWN to soft-drop — and a reward
+> that is exactly the number of lines cleared. Notably there's **no hard drop**, so my
+> planner has to press DOWN about ninety times to seat a piece. And because the reward
+> is *only* line clears, a randomly-initialised policy sees zero reward for its entire
+> training run, which is why my pure-RL agent on ALE scores exactly zero — the policy
+> gradient is zero, so there's nothing to descend. That's the finding, not a bug.
 
 ---
 
@@ -616,6 +744,25 @@ return (~(is_gray | is_black)).astype(np.uint8)
 > Result: the 210×160 RGB screen becomes a 20×10 binary grid — the same representation
 > my custom engine uses, which is what lets the same planner drive both.
 
+### `ale_tetris_agent.py:17` — the ALE action set
+```python
+NOOP, FIRE, RIGHT, LEFT, DOWN = 0, 1, 2, 3, 4
+```
+> The Atari ROM's **entire** action set — five actions. `FIRE` rotates (one direction
+> only, no counter-clockwise). `DOWN` is a **soft** drop. **There is no hard drop** —
+> unlike my custom engine, which has one. That absence shapes the whole track.
+
+### `ale_tetris_agent.py:546` — how Track 2 seats a piece
+```python
+actions = [FIRE] * fires + [move] * moves + [DOWN] * 90
+```
+> Executing one chosen placement on ALE: rotate `n` times, shift sideways `n` times,
+> then **press DOWN ninety times** to force the piece to the bottom. It looks absurd
+> until you know there's no hard-drop action in the ROM — so "get this piece down" is
+> literally spam-the-soft-drop. It's also why Track 2 is open-loop *within* a piece but
+> closed-loop *across* pieces: it re-decodes the screen every piece and re-plans, which
+> is why sticky actions at 0.25 don't hurt it.
+
 ---
 
 ## 6. Vocabulary — so nothing he says lands as a foreign word
@@ -653,9 +800,16 @@ return (~(is_gray | is_black)).astype(np.uint8)
 
 If you can answer these without looking, you're ready:
 
-1. How big is the board, and why are there 22 rows and not 20?
+0. **Which tracks run on ALE, and which on your engine?** *(ALE: **1 and 2**. Custom
+   engine: **3, 4, 5**. Get this wrong and the 2×2 design falls apart — Track 5 only
+   isolates the action space **because** it shares the custom engine with Track 3.)*
+1. How big is the board, and why are there 22 rows and not 20? *(Custom engine.)*
 2. What happens to the falling piece when the agent presses LEFT? *(It moves left
-   **and falls one row.**)*
+   **and falls one row.** Custom engine.)*
+2b. **How many actions does ALE Tetris have, and which one is missing that your engine
+   has?** *(Five — NOOP, FIRE=rotate, LEFT, RIGHT, DOWN=soft drop. **No hard drop.**)*
+2c. **What is ALE Tetris's reward?** *(Lines cleared. Nothing else — which is exactly
+   why Track 1's policy gradient is zero and it scores 0.)*
 3. How many numbers go into the Track 3 network? What are they? *(417.)*
 4. What does the critic output? *(One number: expected future reward from this state.)*
 5. What does the "clip" in PPO clip, and why? *(The policy-update ratio, to ±20%, so
