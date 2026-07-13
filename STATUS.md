@@ -48,10 +48,22 @@ Track 4: tool-assisted high score on custom env:
 - Agent CLI: `agents/custom/tetris_custom_agent.py`
 - Viewer CLI: `agents/custom/render_custom_episode.py`
 - Default best-model output: `artifacts/custom_best/best_weights.npy`
-- Initial smoke-trained custom model: mean score 31900.0 over three 200-piece
-  episodes seeded at 0, 1, and 2
-- Queue-lookahead evaluation improvement at 100-piece cap, seeds 0 through 2:
-  old one-preview mean score 7900.0; queue depth-2 beam-4 mean score 9500.0
+- Method: placement enumeration + Dellacherie-style features + depth-2 queue
+  lookahead, weights optimized CEM-style on a held-out seed set
+- Final result (frozen 2026-07-13): mean score 215,530, mean lines 198.1 of a
+  200-line ceiling over 10 episodes at the 500-piece cap, seeds 0-9
+  (`artifacts/custom_best/evaluation_500.json`)
+- That ceiling is the piece cap, not the agent (measured 2026-07-13): uncapped it
+  does not top out — 10,000 pieces / 3,997 lines, still alive, ~0.4 lines/piece.
+  At a 2,000-piece cap it clears 798 lines.
+
+Playback (added 2026-07-13, after the freeze):
+
+- Best episode of each track as mp4: `artifacts/best_plays/` (mp4s gitignored;
+  regenerate with `python tools/render_best_plays.py`)
+- Live viewer: `python artifacts/best_plays/live_play.py` (track 4, endless) or
+  `--track 3` (restarts on top-out)
+- No agent, model, or frozen result was changed by this work.
 
 Important environment behavior:
 

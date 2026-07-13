@@ -6,3 +6,6 @@ __pycache__/
 .agents/
 .codex/
 runs/
+artifacts/best_plays/*.mp4
+artifacts/best_plays/*.json
+!artifacts/best_plays/manifest.json

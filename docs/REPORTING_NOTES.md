@@ -16,6 +16,10 @@ report. `docs/EXPECTED_PERFORMANCE.md` holds the literature-grounded
 expectations per track (with citations) and the human-level comparison —
 use it for the report's analysis sections (items 7–9 below).
 
+Scores are **not comparable across tracks**: Tracks 1–2 report an estimated Atari
+score (100/line), Track 3 the engine score (which includes soft/hard-drop points),
+Track 4 line-clear score only. Compare lines, and only at equal piece caps.
+
 ## Current Track Framing
 
 Track 1: pure RL on ALE
@@ -77,8 +81,13 @@ Keep these artifacts for report writing:
   over 25 episodes: the project's first pure-RL line clears. Full training
   evidence: `runs/plan_20260708/track3_lines_100m*` (log.txt, progress.csv,
   eval history, checkpoints every 5M).
-- `artifacts/custom_best/custom_episode.json`: older Track 4 baseline/render
-  sidecar.
+- `artifacts/best_plays/manifest.json`: the seed, lines, score and frame count
+  behind each track's best-play video (2026-07-13). The `.mp4` files themselves
+  are gitignored — regenerate with `python tools/render_best_plays.py`.
+- `artifacts/custom_best/custom_episode.json` / `.mp4`: **superseded.** An old
+  Track 4 render (200 pieces / 74 lines) that predates the promoted 500-piece
+  weights, and it sampled one frame per 25 pieces so it is a slideshow, not an
+  animation. Do not cite it; use `artifacts/best_plays/track4_custom_tool.mp4`.
 
 ## Report Structure Draft
 
@@ -111,6 +120,15 @@ Keep these artifacts for report writing:
   (2026-07-08), Track 4 is ~198 mean lines at 500 pieces — saturated there
   too — and the promoted result was decided on mean score (215,530 vs
   213,780), not lines.
+- **Track 4 line counts are only meaningful next to their piece cap.** Measured
+  2026-07-13: the agent does not top out. Uncapped it reached 10,000 pieces /
+  3,997 lines and was still alive when the probe was stopped by hand, holding
+  ~0.4 lines/piece (the theoretical maximum) throughout. So its result is
+  ≈ `0.4 × cap` — 198 lines at 500 pieces, 798 at 2,000 — and any Track 4 number
+  quoted without its cap is meaningless. Never compare Track 4 line counts across
+  different caps, and never describe it as "plateauing" at a ceiling: the ceiling
+  is ours, not its. Scores are line-clear score only (no drop points), matching
+  `play_episode` in `agents/custom/tetris_custom_agent.py`.
 - Fixed on 2026-07-08 (evening): `TetrisScoreEnv` replayed the same piece
   sequence every episode for a given env seed. Training/eval-callback data
   from before the fix (including the Night 1 Track 3 pilot) used only

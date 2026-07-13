@@ -11,27 +11,61 @@ Clean monorepo for four Tetris agent tracks:
 - `agents/custom/tetris_custom_agent.py` trains the tool-assisted custom
   high-score model with placement enumeration and one-piece lookahead.
 
+The four tracks vary two things — the environment (real Atari vs a custom engine)
+and the method (pure RL vs tool-assisted planning) — to isolate one question: how
+much of "playing Tetris well" comes from *learning*, and how much from the action
+abstraction and search that tools provide?
+
 The previous real-ALE 2000-line target is intentionally no longer active. The
 best verified real-ALE 37-line model is set aside under `artifacts/ale_37_line`.
 
+## Results
+
+Frozen 2026-07-13. Full write-up and evidence: **[docs/REPORT.md](docs/REPORT.md)**.
+
+| Track | Env | Method | Result |
+| --- | --- | --- | --- |
+| 1 | ALE | Pure RL (PPO, pixels) | **0 lines** after 10M frames |
+| 2 | ALE | Tool-assisted | **37 lines / 3,700** — identical on every seed |
+| 3 | Custom | Pure RL (PPO, primitive actions) | **mean 1.04 lines** (max 3) |
+| 4 | Custom | Tool-assisted (search + CEM) | **mean 198.1 lines** at a 500-piece cap — and it never tops out: 10,000 pieces → 3,997 lines, still alive |
+
+The headline: on the same engine and the same laptop, placement-level search
+(Track 4) clears ~190× the lines of primitive-action RL (Track 3). The action
+abstraction, not the learning algorithm, is what carries Tetris.
+
+Watch any of it: `python artifacts/best_plays/live_play.py`.
+
 ## Docs
 
-- [Model catalog](docs/MODELS.md)
-- [Project summary](docs/PROJECT_SUMMARY.md)
+- **[Final report](docs/REPORT.md)** — the project deliverable
+- [Model catalog](docs/MODELS.md) — per-track entry points, artifacts, commands
+- [Project summary](docs/PROJECT_SUMMARY.md) — layout and orientation
+- [Expected performance](docs/EXPECTED_PERFORMANCE.md) — literature-grounded
+  expectations and the human-level comparison
+- [Reporting notes](docs/REPORTING_NOTES.md) — which numbers may be compared
+- [Track boundaries](AGENTS.md) — what each track is and isn't allowed to do
+- [Status](STATUS.md) · [Next steps](NEXT_STEPS.md)
 
 ## Layout
 
 ```text
 agents/
-  ale/       Pure-RL ALE agent plus tool-assisted ALE showcase.
-  custom/    Pure-RL custom agent plus tool-assisted custom high-score agent.
+  ale/            Pure-RL ALE agent plus tool-assisted ALE showcase.
+  custom/         Pure-RL custom agent plus tool-assisted custom high-score agent.
+  video.py        Streaming mp4 writer shared by every renderer.
 packages/
-  tetris_env/ Reusable Tetris engine and Gymnasium environment.
+  tetris_env/     Reusable Tetris engine, Gymnasium env, frame renderer.
+tools/
+  render_best_plays.py  Renders the best episode of each track to mp4.
 artifacts/
-  ale_pure_rl/  Default output for pure-RL ALE PPO checkpoints.
-  ale_37_line/  Saved real-ALE 37-line model metadata.
-  custom_pure_rl/ Default output for pure-RL custom PPO checkpoints.
-  custom_best/  Default output for custom-env trained weights and videos.
+  ale_pure_rl/          Pure-RL ALE PPO checkpoints.
+  ale_37_line/          Saved real-ALE 37-line model metadata.
+  ale_stable_high_score/ Track 2 stable weights + evaluation manifest.
+  custom_pure_rl/       Pure-RL custom PPO checkpoints (+ vec_normalize.pkl).
+  custom_best/          Custom-env trained weights, history, evaluations.
+  best_plays/           Best episode per track as mp4, plus the live viewer.
+runs/                   All experiment output (gitignored).
 ```
 
 ## Track 1: Pure RL on ALE
@@ -149,10 +183,46 @@ Evaluate the current custom best:
 python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_best/best_weights.npy --episodes 5 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
 ```
 
-Render a custom-env episode with the next-piece preview visible:
+Render an episode as video. Pieces are animated into place by replaying each
+chosen placement as real engine actions, so the video shows the same board the
+planner produced:
 
 ```bash
-python agents/custom/render_custom_episode.py --weights artifacts/custom_best/best_weights.npy --out artifacts/custom_best/custom_episode.mp4
+python agents/custom/render_custom_episode.py --weights artifacts/custom_best/best_weights.npy --max-pieces 2000 --out artifacts/best_plays/track4_custom_tool.mp4
+```
+
+Note that `--max-pieces` alone decides the result: this agent does not top out
+(10,000 pieces → 3,997 lines, still alive), so it clears roughly `0.4 × max-pieces`
+lines. Quote a Track 4 line count only alongside its cap.
+
+## Best Plays (videos)
+
+`artifacts/best_plays/` holds the best episode of each track as a watchable mp4.
+Each track plays a batch of seeded episodes, and the best one (ranked by lines,
+then score) is replayed with frame capture:
+
+```bash
+python tools/render_best_plays.py --tracks 1,2,3,4
+```
+
+The mp4 files are gitignored; `artifacts/best_plays/README.md` and `manifest.json`
+record what each video shows.
+
+To watch an agent play live in a window instead of a recording (runs until you
+close it — the Track 4 planner never tops out):
+
+```bash
+python artifacts/best_plays/live_play.py            # track 4, endless
+python artifacts/best_plays/live_play.py --track 3  # track 3, restarts on top-out
+```
+
+Individual tracks can also be rendered directly:
+
+```bash
+python agents/ale/pure_rl_ale_agent.py render --seed 0        # track 1
+python ale_tetris_agent.py render --planner legacy_model --weights artifacts/ale_stable_high_score/best_weights.npy  # track 2
+python agents/custom/pure_rl_custom_agent.py render --seed 0  # track 3
+python agents/custom/render_custom_episode.py --seed 0        # track 4
 ```
 
 ## Archived ALE Baseline

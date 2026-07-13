@@ -34,6 +34,28 @@ methods.
 Keep artifacts under the matching track directories documented in
 `docs/MODELS.md`.
 
+## Shared Visualization Code (all four tracks)
+
+Rendering is not assistance — every track may draw itself. These files are shared
+and carry no track allegiance:
+
+- `packages/tetris_env/tetris_env/render.py` — draws a game state as an RGB frame.
+- `agents/video.py` — streaming mp4 writer.
+- `tools/render_best_plays.py`, `artifacts/best_plays/live_play.py` — orchestration
+  and the live viewer.
+
+One file needs care: **`packages/tetris_env/tetris_env/replay.py`** converts a
+planner's `Placement` back into primitive actions so the tool-assisted tracks can
+be animated instead of teleporting pieces. It is planning-adjacent code sitting in
+the shared engine package, so:
+
+**A pure-RL track must never import `replay.py`, and must never call
+`enumerate_placements`, `TetrisGame.clone`, or touch `game.board` directly — in
+training, in evaluation, or in rendering.** A pure-RL agent renders by drawing the
+states it reached through the Gymnasium step API, nothing more. If you find
+yourself wanting placement search to make a pure-RL video look better, the video is
+telling you the truth about the agent and should be left alone.
+
 ## Reporting Notes
 
 This project will need a later report covering progress, what was built, how it

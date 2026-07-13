@@ -1,0 +1,62 @@
+{
+  "generated_by": "python tools/render_best_plays.py",
+  "fps": 15,
+  "seed_start": 0,
+  "seeds": 20,
+  "track4_seeds": 3,
+  "tracks": {
+    "1": {
+      "seed": 14,
+      "native_reward": 0.0,
+      "lines": 0,
+      "score": 0,
+      "steps": 430,
+      "terminated": true,
+      "frames": 457,
+      "video": "track1_ale_pure_rl.mp4",
+      "env": "ALE/Tetris-v5",
+      "method": "Pure RL (PPO, CnnPolicy, pixels)",
+      "model": "artifacts/ale_pure_rl/ppo_ale_pure.zip"
+    },
+    "2": {
+      "seed": 0,
+      "score": 3700,
+      "lines": 37,
+      "native_reward": 37.0,
+      "decisions": 259,
+      "pieces": 259,
+      "frame_count": 2316,
+      "frames": 2316,
+      "video": "track2_ale_tool.mp4",
+      "env": "ALE/Tetris-v5",
+      "method": "Tool-assisted (frame decode + placement search + CEM)",
+      "model": "artifacts/ale_stable_high_score/best_weights.npy"
+    },
+    "3": {
+      "seed": 4,
+      "reward": 18.25,
+      "score": 486,
+      "lines": 2,
+      "pieces": 33,
+      "steps": 325,
+      "frames": 357,
+      "video": "track3_custom_pure_rl.mp4",
+      "vec_normalize": "artifacts\\custom_pure_rl\\vec_normalize.pkl",
+      "env": "custom engine",
+      "method": "Pure RL (PPO, MlpPolicy, primitive actions)",
+      "model": "artifacts/custom_pure_rl/ppo_custom_pure.zip"
+    },
+    "4": {
+      "seed": 1,
+      "score": 3370000,
+      "lines": 798,
+      "pieces": 2000,
+      "fallbacks": 0,
+      "frames": 10059,
+      "video": "track4_custom_tool.mp4",
+      "env": "custom engine",
+      "method": "Tool-assisted (placement enumeration + Dellacherie + lookahead + CEM)",
+      "model": "artifacts/custom_best/best_weights.npy"
+    }
+  }
+}

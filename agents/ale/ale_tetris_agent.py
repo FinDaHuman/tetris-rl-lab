@@ -887,7 +887,16 @@ def play_episode(
     beam: int = 6,
     top_k: int = 48,
     planner: str = "clone",
+    frame_sink=None,
 ):
+    """Play one episode with the placement planner.
+
+    ``frame_sink`` streams captured frames straight to an encoder instead of
+    accumulating them in ``frames``; a 37-line episode is thousands of frames, so
+    holding them all in memory is wasteful. When it is given, ``frames`` stays
+    empty and ``frame_count`` still reports what was captured.
+    """
+    capture = capture or frame_sink is not None
     env = make_env(render_mode="rgb_array" if capture else None, sticky=sticky)
     obs, _ = env.reset(seed=seed)
     if planner == "legacy_calibrated":
@@ -907,12 +916,20 @@ def play_episode(
     failures = 0
     internal_board = np.zeros((N_ROWS, N_COLS), dtype=np.uint8)
 
+    captured = 0
+
     def grab():
-        if capture and len(frames) < max_frames:
+        nonlocal captured
+        if capture and captured < max_frames:
             frame = env.render()
             if frame is not None:
                 lines = reward_to_lines(total_reward)
-                frames.append(annotate(frame, pieces, total_reward, estimate_atari_score(lines), seed))
+                annotated = annotate(frame, pieces, total_reward, estimate_atari_score(lines), seed)
+                captured += 1
+                if frame_sink is not None:
+                    frame_sink(annotated)
+                else:
+                    frames.append(annotated)
 
     grab()
     while not (term or trunc) and pieces < max_pieces:
@@ -974,7 +991,7 @@ def play_episode(
         "decisions": pieces,
         "pieces": pieces,
         "frames": frames,
-        "frame_count": len(frames),
+        "frame_count": captured,
     }
 
 
@@ -1042,25 +1059,37 @@ def train(args: argparse.Namespace) -> None:
     )
 
 
-_FONT = None
+_FONTS: dict[int, object] = {}
+
+ANNOTATE_TITLE = "Track 2 - ALE/Tetris-v5 | tool-assisted (frame decode + CEM)"
+ANNOTATE_UPSCALE = 3
 
 
-def font():
-    global _FONT
-    if _FONT is None:
+def font(size: int = 13):
+    if size not in _FONTS:
         try:
-            _FONT = ImageFont.truetype("arial.ttf", 13)
+            _FONTS[size] = ImageFont.truetype("arial.ttf", size)
         except OSError:
-            _FONT = ImageFont.load_default()
-    return _FONT
+            _FONTS[size] = ImageFont.load_default()
+    return _FONTS[size]
 
 
 def annotate(frame: np.ndarray, pieces: int, reward: float, score: int, seed: int) -> np.ndarray:
-    img = Image.fromarray(frame)
+    # The native ALE screen is 210x160; upscale before stamping the HUD so the
+    # result is actually legible as a video.
+    img = Image.fromarray(frame).resize(
+        (frame.shape[1] * ANNOTATE_UPSCALE, frame.shape[0] * ANNOTATE_UPSCALE), Image.NEAREST
+    )
     draw = ImageDraw.Draw(img)
-    text = f"seed {seed}  pieces {pieces}  reward {reward:.0f}  score {score}"
-    draw.rectangle((0, 0, 159, 16), fill=(0, 0, 0))
-    draw.text((3, 2), text, fill=(255, 255, 0), font=font())
+    lines = reward_to_lines(reward)
+    draw.rectangle((0, 0, img.width, 44), fill=(0, 0, 0))
+    draw.text((6, 3), ANNOTATE_TITLE, fill=(236, 238, 242), font=font(15))
+    draw.text(
+        (6, 24),
+        f"seed {seed}   pieces {pieces}   lines {lines}   score {score}",
+        fill=(240, 208, 76),
+        font=font(14),
+    )
     return np.asarray(img)
 
 

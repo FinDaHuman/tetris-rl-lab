@@ -93,6 +93,7 @@ algorithm — is what produces strong play (see §7 and
 | 07/09 | **Night 2 attempt 2: the Track 3 result.** 100M steps, ~7.8 h: mean **1.04 lines** / 25 episodes (max 3; 21/25 clear ≥1) — the project's first pure-RL line clears. Promoted. Deadline set; one-change-at-a-time tuning retired. |
 | 07/10 → 11 | **Night 3 (negative result):** lr 1e-4 + top-out penalty 25, 200M steps (~17 h): **0.44 mean lines** — never took off. The lower lr stabilized PPO (approx_kl 0.15→~0.06) but the harsher penalty taught *hovering* (episode steps ~240→~330–370 at unchanged ~28 pieces). Not promoted. Track 2 re-confirmed (37/3700, seeds 0–2). Track 1 non-sticky attempt dropped (deadline triage). |
 | 07/13 | Final Track 3 slot (lr 2e-4) was not launched; results frozen. Track 1 25-episode evaluation manifest generated. This report written. |
+| 07/13 (after freeze) | Playback added: every track rendered to mp4 (`artifacts/best_plays/`) plus a live viewer. Doing so required running Track 4 past its cap, which produced the §6 addendum — it never tops out. No agent, model, or frozen number changed. |
 
 ## 6. Final results by track
 
@@ -102,6 +103,26 @@ algorithm — is what produces strong play (see §7 and
 | 2 — tools, ALE | **37 lines, score 3,700**, 259 decisions — identical on every seed | seeds 0–9 (+ re-confirm 0–2) | `artifacts/ale_stable_high_score/evaluation.json`, `runs/plan_20260708/track2_confirm.json` |
 | 3 — pure RL, custom | **mean 1.04 lines** (max 3, 21/25 ≥1 line), mean score 361, ~28 pieces survived | 25 deterministic, seeds 1000–1024, 500-piece cap | `artifacts/custom_pure_rl/evaluation.json` |
 | 4 — tools, custom | **mean 198.1 lines of a 200 ceiling** (max 199), mean score 215,530 | 10, seeds 0–9, 500-piece cap | `artifacts/custom_best/evaluation_500.json` |
+
+Every one of these is watchable: `artifacts/best_plays/` holds the best episode
+of each track as an mp4, with `manifest.json` recording the seed and stats behind
+each one (`python tools/render_best_plays.py` regenerates; the mp4s themselves are
+gitignored). `artifacts/best_plays/live_play.py` plays an agent live in a window.
+Track 1's video is a top-out with no line clears — that is the result, not a
+broken render.
+
+**Post-freeze addendum (2026-07-13, after the results above were frozen):
+Track 4's "200-line ceiling" is the piece cap, not the agent.** Rendering the
+videos required running Track 4 past its cap, which measured, for the first
+time, how long it actually survives: **10,000 pieces / 3,997 lines and still
+alive** (probe stopped manually, not a top-out), holding 0.399 lines per piece —
+99.8% of the theoretical 0.4 maximum — the whole way. A 2,000-piece episode
+clears **798 lines** (score 3,370,000; seeds 0/1/2 → 797/798/798). This confirms
+empirically what `docs/EXPECTED_PERFORMANCE.md` predicted from the literature
+(Dellacherie-class agents run to 10⁵+ lines uncapped). The frozen headline above
+is unchanged and remains the reported result; this only establishes that its
+ceiling was an artifact of the 500-piece evaluation cap, so Track 4's line count
+should be read as "whatever cap you set × 0.4", not as a plateau.
 
 Human-level context (full grounding in `docs/EXPECTED_PERFORMANCE.md`):
 Track 1 is far below any human; Track 3 is well below a first-week novice
@@ -170,6 +191,15 @@ decided on mean score (215,530 vs 213,780) because lines had saturated
 (~198 both). Further Track 4 gains would require longer caps, at
 proportionally longer wall-clock per episode.
 
+Measured after the freeze (see §6): raising the cap does exactly that and
+nothing else. The agent does not top out — 10,000 pieces produced 3,997
+lines with the game still alive — so its line count is a linear function
+of the cap (≈0.4 × pieces) rather than a property of the agent that
+further tuning could improve. Track 4 is finished in the only sense that
+matters: it plays at the theoretical maximum efficiency, and the remaining
+"headroom" is just wall-clock (~35 pieces/s, so ~5 minutes of compute per
+10,000 pieces).
+
 ## 9. Hardware and runtime limitations
 
 All work ran on a single low-end Windows 11 laptop, CPU only:
@@ -207,5 +237,38 @@ Ordered by expected value:
    Track 4; it would be a new track, not a change to Track 3.
 5. **Track 1 non-sticky attempt** (the dropped slot): expected 0 lines,
    but it would complete the documented negative-result pair.
-6. **Track 4 at longer caps** (1,000+ pieces) if a bigger headline
-   number is ever needed; each episode costs ~2× the wall-clock.
+6. ~~**Track 4 at longer caps** (1,000+ pieces) if a bigger headline
+   number is ever needed~~ — **done 2026-07-13** (§6 addendum): it does not
+   top out (10,000 pieces / 3,997 lines, still alive), so a longer cap buys
+   a bigger number and no new information. Not worth further time.
+
+## Appendix A — Watching the agents play
+
+Added 2026-07-13 after the freeze. No agent, model, or reported number was
+changed by this work; it only makes the existing results observable.
+
+| Track | Video (`artifacts/best_plays/`) | Seed | Result shown | Length |
+| --- | --- | --- | --- | --- |
+| 1 | `track1_ale_pure_rl.mp4` | 14 | 0 lines — stacks and tops out | 0:30 |
+| 2 | `track2_ale_tool.mp4` | 0 | 37 lines / 3,700 | 2:34 |
+| 3 | `track3_custom_pure_rl.mp4` | 4 | 2 lines, 33 pieces | 0:24 |
+| 4 | `track4_custom_tool.mp4` | 1 | 798 lines at a 2,000-piece cap | 11:10 |
+
+- `python tools/render_best_plays.py` regenerates all four: it plays a batch of
+  seeded episodes per track, ranks them by lines then score, and re-runs the
+  winner with frame capture. The mp4s are gitignored; `README.md` and
+  `manifest.json` in that directory are committed.
+- `python artifacts/best_plays/live_play.py` plays Track 4 (or `--track 3`) live
+  in a window until closed. Track 4 has no piece cap there — it runs indefinitely.
+- **Fidelity note.** Tracks 1–3 act at the primitive level, so their videos are
+  simply one frame per environment step. Track 4 does not: its planner commits a
+  chosen `Placement` by overwriting the board, so pieces would teleport. To
+  animate it honestly, each placement is converted back into primitive engine
+  actions (rotate → shift → hard drop) and *verified on a clone* before being
+  applied — the sequence is used only if the resulting board is bit-identical to
+  the one the planner chose, otherwise the placement is committed directly and a
+  synthetic fly-in is drawn (`packages/tetris_env/replay.py`). Across the full
+  2,000-piece video this fell back **zero** times, so every piece shown is real
+  engine play landing on the planner's exact board. Verification is not optional
+  here: `TetrisGame.step` applies gravity after every action and SRS kicks shift
+  the piece sideways mid-rotation, so a naive action sequence silently misses.

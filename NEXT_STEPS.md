@@ -1,5 +1,20 @@
 # Next Steps
 
+Status on 2026-07-13 (after the freeze — playback added):
+
+- **Every track is now watchable.** `artifacts/best_plays/` holds the best
+  episode of each track as an mp4 (regenerate: `python tools/render_best_plays.py`;
+  the mp4s are gitignored, the README/manifest are committed), and
+  `python artifacts/best_plays/live_play.py` plays an agent live in a window.
+- **New finding, no result changed:** rendering Track 4 required running it past
+  its piece cap, which showed it **never tops out** — 10,000 pieces / 3,997 lines,
+  still alive when stopped by hand, at ~0.4 lines/piece (the theoretical maximum).
+  Its "200-line ceiling" was always the 500-piece cap. This confirms the
+  literature-derived prediction in `docs/EXPECTED_PERFORMANCE.md` and closes item 6
+  of the report's Next Work.
+- Nothing else changed: no agent, model, hyperparameter, or frozen number was
+  touched. `docs/REPORT.md` §6 carries the addendum and Appendix A the videos.
+
 Status on 2026-07-13 (deadline day — results frozen, report written):
 
 - Night 4 (the final Track 3 slot, lr 2e-4) was **not launched**; the

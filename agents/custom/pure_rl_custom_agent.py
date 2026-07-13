@@ -298,6 +298,112 @@ def evaluate(args: argparse.Namespace) -> None:
     print(f"mean_score={scores.mean():.1f} max_score={scores.max():.1f} mean_lines={lines.mean():.1f}")
 
 
+TITLE = "Track 3 - custom engine\npure RL (PPO, primitive actions)"
+
+
+def load_policy(model_path, *, vec_normalize=None, device: str = "cpu", normalize: bool = True):
+    """Load the policy plus the VecNormalize stats it was trained under.
+
+    The model is unusable without those stats: it was trained on normalized
+    observations, so feeding it raw ones produces garbage actions. The stats are
+    loaded through a throwaway vector env (VecNormalize.load needs one) and then
+    applied by hand, because the rollout below drives a plain env rather than a
+    VecEnv -- DummyVecEnv auto-resets on termination, which would wipe the game
+    state before the final frames could be drawn.
+    """
+    _, _, _, _, _, _, VecNormalize = _import_sb3()
+    from stable_baselines3 import PPO
+
+    model_path = _model_path(model_path)
+    model = PPO.load(model_path, device=device)
+    stats_path = _stats_path(model_path, vec_normalize)
+    normalizer = None
+    if normalize:
+        if stats_path.exists():
+            probe = make_vector_env(n_envs=1, max_pieces=10, seed=0, reward_mode="lines")
+            normalizer = VecNormalize.load(stats_path, probe)
+            normalizer.training = False
+            normalizer.norm_reward = False
+        else:
+            print(f"warning: VecNormalize stats not found at {stats_path}; running without normalization")
+    return model, normalizer, model_path, stats_path
+
+
+def play_and_render(
+    model,
+    normalizer,
+    *,
+    seed: int,
+    max_pieces: int,
+    reward_mode: str = "lines",
+    deterministic: bool = True,
+    writer=None,
+    title: str = TITLE,
+) -> dict:
+    """Roll out one episode, drawing a frame after every primitive action."""
+    from tetris_env.render import render_frame
+
+    env = make_env(max_pieces=max_pieces, seed=seed, reward_mode=reward_mode)
+    obs, info = env.reset(seed=seed)
+    game = env.unwrapped.game
+
+    def draw(flash: bool = False, hold: int = 1) -> None:
+        if writer is not None:
+            writer.append(render_frame(game, title=title, seed=seed, flash=flash), hold=hold)
+
+    draw(hold=8)
+    total_reward = 0.0
+    terminated = truncated = False
+    steps = 0
+    while not (terminated or truncated):
+        batch = obs[None, :]
+        if normalizer is not None:
+            batch = normalizer.normalize_obs(batch)
+        action, _ = model.predict(batch, deterministic=deterministic)
+        lines_before = game.lines
+        obs, reward, terminated, truncated, info = env.step(int(action[0]))
+        total_reward += float(reward)
+        steps += 1
+        draw()
+        if game.lines > lines_before:
+            draw(flash=True, hold=2)
+    draw(hold=20)
+    env.close()
+    return {
+        "seed": seed,
+        "reward": total_reward,
+        "score": int(info["score"]),
+        "lines": int(info["lines"]),
+        "pieces": int(info["pieces"]),
+        "steps": steps,
+        "frames": 0 if writer is None else writer.frames,
+    }
+
+
+def render(args: argparse.Namespace) -> None:
+    sys.path.insert(0, str(ROOT))
+    from agents.video import VideoWriter
+
+    model, normalizer, model_path, _ = load_policy(
+        args.model, vec_normalize=args.vec_normalize, device=args.device, normalize=args.normalize
+    )
+    out = Path(args.out)
+    with VideoWriter(out, fps=args.fps) as writer:
+        stats = play_and_render(
+            model,
+            normalizer,
+            seed=args.seed,
+            max_pieces=args.max_pieces,
+            reward_mode=args.reward_mode,
+            deterministic=args.deterministic,
+            writer=writer,
+        )
+    stats["model"] = str(model_path)
+    out.with_suffix(".json").write_text(json.dumps(stats, indent=2), encoding="utf-8")
+    print(json.dumps(stats))
+    print(f"wrote {out}")
+
+
 def smoke(args: argparse.Namespace) -> None:
     env = make_env(max_pieces=args.max_pieces, seed=args.seed, reward_mode=args.reward_mode)
     obs, info = env.reset(seed=args.seed)
@@ -375,6 +481,18 @@ def parse_args() -> argparse.Namespace:
     eval_parser.add_argument("--normalize", action=argparse.BooleanOptionalAction, default=True)
     eval_parser.add_argument("--vec-normalize", default=None)
     eval_parser.add_argument("--out", default=None)
+
+    render_parser = sub.add_parser("render")
+    render_parser.add_argument("--model", default="artifacts/custom_pure_rl/ppo_custom_pure.zip")
+    render_parser.add_argument("--max-pieces", type=int, default=1000)
+    render_parser.add_argument("--reward-mode", choices=("score", "lines"), default="lines")
+    render_parser.add_argument("--seed", type=int, default=1000)
+    render_parser.add_argument("--device", default="cpu")
+    render_parser.add_argument("--deterministic", action="store_true", default=True)
+    render_parser.add_argument("--normalize", action=argparse.BooleanOptionalAction, default=True)
+    render_parser.add_argument("--vec-normalize", default=None)
+    render_parser.add_argument("--fps", type=int, default=15)
+    render_parser.add_argument("--out", default="artifacts/best_plays/track3_custom_pure_rl.mp4")
     return parser.parse_args()
 
 
@@ -387,6 +505,8 @@ def main() -> None:
         train(args)
     elif args.cmd == "evaluate":
         evaluate(args)
+    elif args.cmd == "render":
+        render(args)
     print(f"elapsed={time.time() - start:.1f}s")
 
 

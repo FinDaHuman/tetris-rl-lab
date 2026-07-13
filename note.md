@@ -1,5 +1,11 @@
 # Overnight Clear-Line Plan
 
+> **Superseded (2026-07-07 plan, kept for history).** Do not run these commands.
+> They were written before the seeding fix, the force-lock fix, the `lines` reward
+> default and the planner rewrite, and the "known issue" below (the Track 1 eval
+> JSON crash) was fixed on 2026-07-08. The runbook that replaced this is
+> `TRAINING_PLAN.md`; the final results are in `docs/REPORT.md`.
+
 Goal: increase clear lines across all four tracks while respecting the project
 track boundaries in `AGENTS.md`.
 

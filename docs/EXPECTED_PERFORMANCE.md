@@ -163,6 +163,15 @@ already achieved: ~198 of the 200-line maximum at the 500-piece cap
   literature says the same agent uncapped would run into the 10⁵+ line
   range — but a single such episode would take hours of wall-clock, which
   is why we report at fixed piece caps instead.
+- **Prediction confirmed (2026-07-13).** The claim above ("our cap, not the
+  method, is the ceiling") was tested directly by running the promoted weights
+  with no piece cap: **10,000 pieces / 3,997 lines, still alive** when the probe
+  was stopped by hand — 0.399 lines/piece sustained the whole way, and no
+  top-out. A 2,000-piece cap yields 798 lines (seeds 0/1/2 → 797/798/798). The
+  wall-clock caveat also held: ~35 pieces/s, so ~5 min of compute per 10,000
+  pieces, which is why fixed caps remain the reporting unit. This is the one
+  prediction in this document that has been checked end-to-end against the
+  agent rather than against the literature.
 
 ---
 
@@ -173,7 +182,7 @@ already achieved: ~198 of the 200-line maximum at the 500-piece cap
 | 1 | PPO from pixels, ALE, ~3M frames | 0 lines, score ~0 | (final attempt = Night 4) | Far below novice |
 | 2 | Decode + search + CEM on ALE | Tens of lines | 37 lines / 3700, seeds 0–9 | ≈ casual human, superhuman consistency |
 | 3 | PPO, primitive actions, custom env, 100M steps | Low single-digit mean lines | 1.04 mean lines (max 3) | Well below novice |
-| 4 | Placement search + CEM, custom env | Saturates the piece cap | ~198/200 lines, mean score 215,530 | Superhuman efficiency/consistency |
+| 4 | Placement search + CEM, custom env | Saturates the piece cap | ~198/200 lines, mean score 215,530; uncapped it does not top out (10,000 pieces / 3,997 lines, confirmed 07/13) | Superhuman efficiency/consistency |
 
 The cross-track story the numbers tell: **the action-space abstraction,
 not the learning algorithm, is the dominant variable.** Identical engine,

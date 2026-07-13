@@ -3,102 +3,128 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "packages" / "tetris_env"))
 
-import imageio.v2 as imageio
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-
 from tetris_env import TetrisGame
-from tetris_env.engine import COLS, HIDDEN_ROWS, PIECES, ROWS
+from tetris_env.render import render_frame
+from tetris_env.replay import placement_actions, placement_drop_states
+
 from agents.custom.tetris_custom_agent import choose_placement, load_weights
+from agents.video import VideoWriter
 
 
-CELL = 24
-PANEL = 176
-COLORS = {
-    0: (18, 18, 20),
-    1: (64, 190, 230),
-}
+TITLE = "Track 4 - custom engine\ntool-assisted (CEM + lookahead)"
 
 
-def font(size: int):
-    try:
-        return ImageFont.truetype("arial.ttf", size)
-    except OSError:
-        return ImageFont.load_default()
+def play_and_render(
+    weights,
+    *,
+    seed: int,
+    max_pieces: int,
+    writer: VideoWriter | None = None,
+    title: str = TITLE,
+    lookahead_weight: float = 0.35,
+    lookahead_candidates: int = 4,
+    lookahead_depth: int = 2,
+    future_source: str = "queue",
+) -> dict:
+    """Replay the placement planner, animating each piece into position.
 
+    The planner chooses a final ``Placement``; ``agents/custom/tetris_custom_agent.play_episode``
+    commits it by overwriting the board, which is what produced the recorded
+    result. To stay bit-identical to that result while still animating, each
+    placement is first replayed as primitive actions on a clone
+    (``placement_actions``); if that lands on exactly the planner's board we step
+    the real game through those actions, otherwise we animate a synthetic fly-in
+    and commit the placement directly. Either way the board after each piece is
+    the planner's board.
 
-def draw_next(draw: ImageDraw.ImageDraw, piece: str, x0: int, y0: int) -> None:
-    draw.text((x0, y0), "NEXT", fill=(230, 230, 230), font=font(16))
-    shape = PIECES[piece][0]
-    for row, col in shape:
-        x = x0 + 16 + col * CELL
-        y = y0 + 32 + row * CELL
-        draw.rectangle((x, y, x + CELL - 2, y + CELL - 2), fill=(245, 204, 80))
+    Score is accumulated from ``placement.score_delta`` (line score only, no drop
+    points), matching how the track is evaluated and reported.
+    """
+    game = TetrisGame(seed=seed)
+    score = 0
+    fallbacks = 0
 
+    def draw(flash: bool = False, hold: int = 1) -> None:
+        if writer is not None:
+            writer.append(render_frame(game, title=title, seed=seed, score=score, flash=flash), hold=hold)
 
-def render_frame(game: TetrisGame) -> np.ndarray:
-    width = COLS * CELL + PANEL
-    height = (ROWS - HIDDEN_ROWS) * CELL
-    img = Image.new("RGB", (width, height), (10, 10, 12))
-    draw = ImageDraw.Draw(img)
-    active = set(game.cells())
-    for row in range(HIDDEN_ROWS, ROWS):
-        for col in range(COLS):
-            x = col * CELL
-            y = (row - HIDDEN_ROWS) * CELL
-            filled = bool(game.board[row, col]) or (row, col) in active
-            fill = COLORS[1] if filled else COLORS[0]
-            draw.rectangle((x, y, x + CELL - 2, y + CELL - 2), fill=fill)
-    x0 = COLS * CELL + 18
-    draw.text((x0, 18), f"score {game.score}", fill=(255, 255, 255), font=font(16))
-    draw.text((x0, 42), f"lines {game.lines}", fill=(255, 255, 255), font=font(16))
-    draw.text((x0, 66), f"pieces {game.pieces}", fill=(255, 255, 255), font=font(16))
-    draw_next(draw, game.next_piece, x0, 104)
-    return np.asarray(img)
-
-
-def render(args: argparse.Namespace) -> None:
-    weights = load_weights(args.weights)
-    game = TetrisGame(seed=args.seed)
-    frames = [render_frame(game)]
-    while not game.game_over and game.pieces < args.max_pieces:
-        placement = choose_placement(game, weights)
+    draw(hold=8)
+    while not game.game_over and game.pieces < max_pieces:
+        placement = choose_placement(
+            game,
+            weights,
+            lookahead_weight=lookahead_weight,
+            lookahead_candidates=lookahead_candidates,
+            lookahead_depth=lookahead_depth,
+            future_source=future_source,
+        )
         if placement is None:
             break
-        game.board = placement.board.copy()
-        game.score += placement.score_delta
-        game.lines += placement.lines
-        game.level = game.lines // 10
-        game.pieces += 1
-        game.spawn()
-        if game.pieces == 1 or game.pieces % args.frame_every == 0:
-            frames.append(render_frame(game))
-    frames.append(render_frame(game))
+
+        lines_before = game.lines
+        actions = placement_actions(game, placement) if writer is not None else None
+        if actions is not None:
+            for action in actions:
+                game.step(action)
+                draw()
+            # The engine's own scoring includes hard-drop points; keep the
+            # reported score on the line-clear-only convention used by the eval.
+            score += placement.score_delta
+        else:
+            if writer is not None:
+                fallbacks += 1
+                for state in placement_drop_states(game, placement):
+                    game.current = state
+                    draw()
+            game.board = placement.board.copy()
+            score += placement.score_delta
+            game.lines += placement.lines
+            game.level = game.lines // 10
+            game.pieces += 1
+            game.spawn()
+
+        if game.lines > lines_before:
+            draw(flash=True, hold=2)
+
+    draw(hold=20)
+    return {
+        "seed": seed,
+        "score": int(score),
+        "lines": int(game.lines),
+        "pieces": int(game.pieces),
+        "fallbacks": fallbacks,
+        "frames": 0 if writer is None else writer.frames,
+    }
+
+
+def main() -> None:
+    args = parse_args()
+    start = time.time()
+    weights = load_weights(args.weights)
     out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    imageio.mimsave(out, frames, fps=args.fps)
-    stats = {"seed": args.seed, "score": game.score, "lines": game.lines, "pieces": game.pieces, "frames": len(frames)}
+    with VideoWriter(out, fps=args.fps) as writer:
+        stats = play_and_render(weights, seed=args.seed, max_pieces=args.max_pieces, writer=writer)
     out.with_suffix(".json").write_text(json.dumps(stats, indent=2), encoding="utf-8")
     print(json.dumps(stats))
-    print(f"wrote {out}")
+    print(f"wrote {out} elapsed={time.time() - start:.1f}s")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", default="artifacts/custom_best/best_weights.npy")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--max-pieces", type=int, default=5000)
-    parser.add_argument("--frame-every", type=int, default=25)
-    parser.add_argument("--fps", type=int, default=12)
-    parser.add_argument("--out", default="artifacts/custom_best/custom_episode.mp4")
+    parser.add_argument("--max-pieces", type=int, default=500)
+    parser.add_argument("--fps", type=int, default=15)
+    parser.add_argument("--out", default="artifacts/best_plays/track4_custom_tool.mp4")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    render(parse_args())
+    main()

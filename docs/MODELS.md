@@ -39,7 +39,13 @@ python agents/ale/pure_rl_ale_agent.py smoke
 python agents/ale/pure_rl_ale_agent.py train --timesteps 100000 --n-envs 4 --sticky 0.25
 python agents/ale/pure_rl_ale_agent.py train --timesteps 10000000 --n-envs 8 --vec-env subproc --sticky 0.25
 python agents/ale/pure_rl_ale_agent.py evaluate --model artifacts/ale_pure_rl/ppo_ale_pure.zip --episodes 25 --sticky 0.25 --out artifacts/ale_pure_rl/evaluation.json
+python agents/ale/pure_rl_ale_agent.py render --seed 0 --out artifacts/best_plays/track1_ale_pure_rl.mp4
 ```
+
+The `render` subcommand captures the native ALE screen (not the 84x84 grayscale
+observation the policy sees) and must be given the same `--sticky` / `--frame-stack`
+/ preprocessing settings the model was trained with, or the policy is being fed an
+observation it never saw. The defaults match `artifacts/ale_pure_rl/meta.json`.
 
 ## Track 2: Tool-Assisted High Score on ALE
 
@@ -107,7 +113,13 @@ Commands:
 python agents/custom/pure_rl_custom_agent.py smoke
 python agents/custom/pure_rl_custom_agent.py train --timesteps 5000000 --n-envs 8 --reward-mode lines
 python agents/custom/pure_rl_custom_agent.py evaluate --model artifacts/custom_pure_rl/ppo_custom_pure.zip --episodes 10 --deterministic --out artifacts/custom_pure_rl/evaluation.json
+python agents/custom/pure_rl_custom_agent.py render --seed 0 --out artifacts/best_plays/track3_custom_pure_rl.mp4
 ```
+
+`artifacts/custom_pure_rl/vec_normalize.pkl` is **required** alongside the model:
+it was trained on normalized observations, so loading the `.zip` without the stats
+produces garbage actions rather than an error. `evaluate` and `render` both load it
+automatically from the model's directory (`--vec-normalize` overrides the path).
 
 ## Track 4: Tool-Assisted High Score on Custom Env
 
@@ -121,6 +133,10 @@ game rules standard. This is the fast planning/optimization track.
 - Current verified result (2026-07-08, 500-piece cap, 10 episodes, seeds
   0-9): mean score 215,530, mean lines 198.1 of a 200-line ceiling —
   `artifacts/custom_best/evaluation_500.json`
+- **The 200-line ceiling is the piece cap, not the agent** (measured
+  2026-07-13): uncapped it does not top out — 10,000 pieces / 3,997 lines and
+  still alive when the probe was stopped, sustaining ~0.4 lines/piece. Read its
+  line count as `0.4 × cap`. At a 2,000-piece cap it clears 798 lines.
 - Current method: weighted placement features optimized by CEM-style training
   with queue-aware beam lookahead
 - Best-weights promotion during training uses a fixed held-out seed set
@@ -139,8 +155,28 @@ Commands:
 ```bash
 python agents/custom/tetris_custom_agent.py train --generations 20 --population 32 --rollouts 4 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
 python agents/custom/tetris_custom_agent.py evaluate --weights artifacts/custom_best/best_weights.npy --episodes 5 --lookahead-depth 2 --lookahead-candidates 4 --future-source queue
-python agents/custom/render_custom_episode.py --weights artifacts/custom_best/best_weights.npy --out artifacts/custom_best/custom_episode.mp4
+python agents/custom/render_custom_episode.py --weights artifacts/custom_best/best_weights.npy --max-pieces 2000 --out artifacts/best_plays/track4_custom_tool.mp4
 ```
+
+## Playback
+
+All four tracks render to mp4, and two can be watched live.
+
+```bash
+python tools/render_best_plays.py --tracks 1,2,3,4      # best episode per track -> artifacts/best_plays/
+python artifacts/best_plays/live_play.py                # track 4 live, runs until closed
+python artifacts/best_plays/live_play.py --track 3      # track 3 live, restarts on top-out
+```
+
+`render_best_plays.py` searches seeds per track, ranks by lines then score, and
+re-renders the winner. Shared rendering code lives in the engine package
+(`tetris_env/render.py` draws a frame, `tetris_env/replay.py` converts a planner
+`Placement` back into primitive actions so Track 4 animates instead of teleporting)
+and `agents/video.py` (streaming mp4 writer — do not accumulate frames in a list;
+a 2,000-piece episode is ~10k frames).
+
+**Boundary:** `replay.py` exists only to animate the tool-assisted tracks. It must
+never be imported by a pure-RL training or evaluation path (see `AGENTS.md`).
 
 ## Artifact Ownership
 
@@ -149,8 +185,11 @@ artifacts/
   ale_pure_rl/              Track 1 PPO checkpoints and metadata.
   ale_37_line/              Track 2 archived ALE 37-line checkpoint.
   ale_stable_high_score/    Track 2 stable ALE copy and evaluation manifest.
-  custom_pure_rl/           Track 3 PPO checkpoints and metadata.
-  custom_best/              Track 4 optimized weights, history, and renders.
+  custom_pure_rl/           Track 3 PPO checkpoints, metadata, VecNormalize stats.
+  custom_best/              Track 4 optimized weights, history, and evaluations.
+  best_plays/               Best episode per track as mp4 + live viewer.
+                            README.md/manifest.json/live_play.py are committed;
+                            the .mp4 files are gitignored (regenerate them).
 ```
 
 Temporary smoke or experiment outputs should go under `runs/`, which is ignored.

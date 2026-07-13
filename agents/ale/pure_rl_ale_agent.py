@@ -255,6 +255,123 @@ def evaluate(args: argparse.Namespace) -> None:
     print(f"mean_native_reward={rewards.mean():.2f} max_native_reward={rewards.max():.2f}")
 
 
+TITLE = "Track 1 - ALE/Tetris-v5 | pure RL (PPO, pixels)"
+UPSCALE = 3
+
+
+def _annotate(frame: np.ndarray, *, seed: int, steps: int, lines: int, score: int) -> np.ndarray:
+    """Upscale the 210x160 ALE frame and stamp a readable HUD on it."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.fromarray(frame).resize(
+        (frame.shape[1] * UPSCALE, frame.shape[0] * UPSCALE), Image.NEAREST
+    )
+    draw = ImageDraw.Draw(img)
+    try:
+        title_font = ImageFont.truetype("arial.ttf", 15)
+        hud_font = ImageFont.truetype("arial.ttf", 14)
+    except OSError:
+        title_font = hud_font = ImageFont.load_default()
+    draw.rectangle((0, 0, img.width, 44), fill=(0, 0, 0))
+    draw.text((6, 3), TITLE, fill=(236, 238, 242), font=title_font)
+    draw.text((6, 24), f"seed {seed}   steps {steps}   lines {lines}   score {score}", fill=(240, 208, 76), font=hud_font)
+    return np.asarray(img)
+
+
+def play_and_render(
+    model,
+    *,
+    seed: int,
+    max_steps: int,
+    sticky: float = 0.25,
+    frame_stack: int = 4,
+    preprocessing: str = "atari",
+    screen_size: int = 84,
+    noop_max: int = 30,
+    deterministic: bool = True,
+    writer=None,
+) -> dict:
+    """Roll out one episode, capturing the native ALE screen (not the 84x84 obs)."""
+    env = make_vector_env(
+        n_envs=1,
+        sticky=sticky,
+        seed=seed,
+        frame_stack=frame_stack,
+        preprocessing=preprocessing,
+        screen_size=screen_size,
+        noop_max=noop_max,
+        render_mode="rgb_array" if writer is not None else None,
+    )
+    # The policy sees the preprocessed 84x84 grayscale stack; the video shows the
+    # RGB screen a human would see, pulled from the innermost env.
+    screen = env.unwrapped.envs[0] if writer is not None else None
+    obs = env.reset()
+    total_reward = 0.0
+    steps = 0
+    done = np.array([False])
+
+    def draw(hold: int = 1) -> None:
+        if writer is None:
+            return
+        frame = screen.render()
+        if frame is not None:
+            lines = reward_to_lines(total_reward)
+            writer.append(
+                _annotate(frame, seed=seed, steps=steps, lines=lines, score=estimate_atari_score(lines)),
+                hold=hold,
+            )
+
+    draw(hold=8)
+    while not bool(done[0]) and steps < max_steps:
+        action, _ = model.predict(obs, deterministic=deterministic)
+        obs, reward, done, infos = env.step(action)
+        total_reward += float(reward[0])
+        steps += 1
+        # DummyVecEnv auto-resets on termination, so the post-done screen belongs
+        # to a fresh episode; stop capturing at the terminal step.
+        if bool(done[0]):
+            break
+        draw()
+    draw(hold=20)
+    env.close()
+    lines = reward_to_lines(total_reward)
+    return {
+        "seed": seed,
+        "native_reward": total_reward,
+        "lines": lines,
+        "score": estimate_atari_score(lines),
+        "steps": steps,
+        "terminated": bool(done[0]),
+        "frames": 0 if writer is None else writer.frames,
+    }
+
+
+def render(args: argparse.Namespace) -> None:
+    PPO, _, _, _, _, _, _, _, _ = _import_sb3()
+    from agents.video import VideoWriter
+
+    model_path = _model_path(args.model)
+    model = PPO.load(model_path, device=args.device)
+    out = Path(args.out)
+    with VideoWriter(out, fps=args.fps) as writer:
+        stats = play_and_render(
+            model,
+            seed=args.seed,
+            max_steps=args.max_steps,
+            sticky=args.sticky,
+            frame_stack=args.frame_stack,
+            preprocessing=args.preprocessing,
+            screen_size=args.screen_size,
+            noop_max=args.noop_max,
+            deterministic=args.deterministic,
+            writer=writer,
+        )
+    stats["model"] = str(model_path)
+    out.with_suffix(".json").write_text(json.dumps(stats, indent=2, default=_json_default), encoding="utf-8")
+    print(json.dumps(stats, default=_json_default))
+    print(f"wrote {out}")
+
+
 def smoke(args: argparse.Namespace) -> None:
     env: gym.Env = make_env(
         render_mode=None,
@@ -350,6 +467,20 @@ def parse_args() -> argparse.Namespace:
     eval_parser.add_argument("--device", default="auto")
     eval_parser.add_argument("--deterministic", action="store_true")
     eval_parser.add_argument("--out", default=None)
+
+    render_parser = sub.add_parser("render")
+    render_parser.add_argument("--model", default="artifacts/ale_pure_rl/ppo_ale_pure.zip")
+    render_parser.add_argument("--max-steps", type=int, default=20_000)
+    render_parser.add_argument("--sticky", type=float, default=0.25)
+    render_parser.add_argument("--frame-stack", type=int, default=4)
+    render_parser.add_argument("--preprocessing", choices=("atari", "raw"), default="atari")
+    render_parser.add_argument("--screen-size", type=int, default=84)
+    render_parser.add_argument("--noop-max", type=int, default=30)
+    render_parser.add_argument("--seed", type=int, default=1000)
+    render_parser.add_argument("--device", default="auto")
+    render_parser.add_argument("--deterministic", action="store_true", default=True)
+    render_parser.add_argument("--fps", type=int, default=15)
+    render_parser.add_argument("--out", default="artifacts/best_plays/track1_ale_pure_rl.mp4")
     return parser.parse_args()
 
 
@@ -362,6 +493,8 @@ def main() -> None:
         train(args)
     elif args.cmd == "evaluate":
         evaluate(args)
+    elif args.cmd == "render":
+        render(args)
     print(f"elapsed={time.time() - start:.1f}s")
 
 
